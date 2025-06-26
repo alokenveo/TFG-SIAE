@@ -7,14 +7,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 
 @Entity
-public class Asignatura {
+public class OfertaEducativa {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
-	private String nombre;
-	
+
+	@ManyToOne
+	private CentroEducativo centro;
+
 	@ManyToOne
 	private Curso curso;
 
@@ -26,12 +27,12 @@ public class Asignatura {
 		this.id = id;
 	}
 
-	public String getNombre() {
-		return nombre;
+	public CentroEducativo getCentro() {
+		return centro;
 	}
 
-	public void setNombre(String nombre) {
-		this.nombre = nombre;
+	public void setCentro(CentroEducativo centro) {
+		this.centro = centro;
 	}
 
 	public Curso getCurso() {
@@ -41,6 +42,4 @@ public class Asignatura {
 	public void setCurso(Curso curso) {
 		this.curso = curso;
 	}
-	
-	
 }

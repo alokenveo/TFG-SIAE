@@ -16,4 +16,12 @@ public class GestorInstitucional extends Usuario {
 		return "GESTOR";
 	}
 
+	public CentroEducativo getCentro() {
+		return centro;
+	}
+
+	public void setCentro(CentroEducativo centro) {
+		this.centro = centro;
+	}
+
 }

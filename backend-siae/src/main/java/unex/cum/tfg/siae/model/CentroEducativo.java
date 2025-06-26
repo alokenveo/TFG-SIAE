@@ -13,7 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
 @Entity
@@ -39,7 +38,7 @@ public class CentroEducativo {
 
 	@OneToMany(mappedBy = "centroEducativo")
 	@JsonIgnore
-	private List<Alumno> alumnos;
+    private List<Matricula> matriculas;
 
 	@OneToMany(mappedBy = "centroEducativo")
 	@JsonIgnore
@@ -93,20 +92,20 @@ public class CentroEducativo {
 		this.niveles = niveles;
 	}
 
-	public List<Alumno> getAlumnos() {
-		return alumnos;
-	}
-
-	public void setAlumnos(List<Alumno> alumnos) {
-		this.alumnos = alumnos;
-	}
-
 	public List<Personal> getPersonal() {
 		return personal;
 	}
 
 	public void setPersonal(List<Personal> personal) {
 		this.personal = personal;
+	}
+
+	public List<Matricula> getMatriculas() {
+		return matriculas;
+	}
+
+	public void setMatriculas(List<Matricula> matriculas) {
+		this.matriculas = matriculas;
 	}
 
 	@Override
