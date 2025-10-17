@@ -26,4 +26,20 @@ public class AlumnoServiceImpl implements AlumnoService {
 		return alumnoRepository.findAll();
 	}
 
+	@Override
+	public Alumno editarAlumno(Long id, Alumno alumnoDetails) {
+		return alumnoRepository.findById(id).map(alumno -> {
+			alumno.setNombre(alumnoDetails.getNombre());
+			alumno.setApellidos(alumnoDetails.getApellidos());
+			alumno.setFechaNacimiento(alumnoDetails.getFechaNacimiento());
+			alumno.setSexo(alumnoDetails.getSexo());
+			return alumnoRepository.save(alumno);
+		}).orElse(null);
+	}
+
+	@Override
+	public void eliminarAlumno(Long id) {
+		alumnoRepository.deleteById(id);
+	}
+
 }

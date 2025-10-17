@@ -18,4 +18,8 @@ public interface UsuarioService {
 	boolean existeUsuario(Usuario usuario);
 	
 	List<Usuario> obtenerUsuarios();
+
+	Usuario editarUsuario(Long id, Usuario usuario);
+
+	void eliminarUsuario(Long id);
 }

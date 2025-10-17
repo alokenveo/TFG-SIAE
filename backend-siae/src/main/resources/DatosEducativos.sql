@@ -75,3 +75,7 @@ INSERT INTO centro_educativo (id, nombre, direccion, provincia, tipo)
 VALUES (3, 'La Antorcha', 'Nfefesala', 'LITORAL', 'PUBLICO');
 INSERT INTO centro_educativo (id, nombre, direccion, provincia, tipo)
 VALUES (4, 'Rafael Mª Nze Abuy', 'Ebibeyin', 'KIE_NTEM', 'PRIVADO');
+
+
+INSERT INTO usuario (nombre, correo, password, rol)
+VALUES ('Alfredo Admin', 'admin@siae.edu', 'admin123', 'ADMIN');

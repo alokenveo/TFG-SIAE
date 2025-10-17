@@ -56,7 +56,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 		if (usuarioRepository.existsByCorreo(admin.getCorreo())) {
 			throw new RuntimeException("El correo ya está registrado");
 		}
-		Administrador ad=new Administrador();
+		Administrador ad = new Administrador();
 		ad.setNombre(admin.getNombre());
 		ad.setCorreo(admin.getCorreo());
 		ad.setPassword(passwordEncoder.encode(admin.getPassword()));
@@ -68,7 +68,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 		if (usuarioRepository.existsByCorreo(invitado.getCorreo())) {
 			throw new RuntimeException("El correo ya está registrado");
 		}
-		Invitado inv=new Invitado();
+		Invitado inv = new Invitado();
 		inv.setNombre(invitado.getNombre());
 		inv.setCorreo(invitado.getCorreo());
 		inv.setPassword(passwordEncoder.encode(invitado.getPassword()));
@@ -78,6 +78,29 @@ public class UsuarioServiceImpl implements UsuarioService {
 	@Override
 	public List<Usuario> obtenerUsuarios() {
 		return usuarioRepository.findAll();
+	}
+
+	@Override
+	public Usuario editarUsuario(Long id, Usuario usuarioDetails) {
+		return usuarioRepository.findById(id).map(usuario -> {
+			usuario.setNombre(usuarioDetails.getNombre());
+			usuario.setCorreo(usuarioDetails.getCorreo());
+			// Opcional: Lógica para cambiar la contraseña si se proporciona una nueva
+			/*
+			if (usuarioDetails.getPassword() != null && !usuarioDetails.getPassword().isEmpty()) {
+				usuario.setPassword(passwordEncoder.encode(usuarioDetails.getPassword()));
+			}
+			*/
+			return usuarioRepository.save(usuario);
+		}).orElse(null);
+	}
+
+	@Override
+	public void eliminarUsuario(Long id) {
+		if (!usuarioRepository.existsById(id)) {
+			throw new RuntimeException("Usuario no encontrado con id: " + id);
+		}
+		usuarioRepository.deleteById(id);
 	}
 
 }

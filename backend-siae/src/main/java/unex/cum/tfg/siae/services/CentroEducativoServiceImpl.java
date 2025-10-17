@@ -9,11 +9,11 @@ import unex.cum.tfg.siae.repository.CentroEducativoRepository;
 
 @Service
 public class CentroEducativoServiceImpl implements CentroEducativoService {
-	
+
 	private final CentroEducativoRepository centroEducativoRepository;
-	
+
 	public CentroEducativoServiceImpl(CentroEducativoRepository centroEducativoRepository) {
-		this.centroEducativoRepository=centroEducativoRepository;
+		this.centroEducativoRepository = centroEducativoRepository;
 	}
 
 	@Override
@@ -24,6 +24,22 @@ public class CentroEducativoServiceImpl implements CentroEducativoService {
 	@Override
 	public List<CentroEducativo> obtenerTodosLosCentros() {
 		return centroEducativoRepository.findAll();
+	}
+
+	@Override
+	public CentroEducativo editarCentroEducativo(Long id, CentroEducativo centroDetails) {
+		return centroEducativoRepository.findById(id).map(centro -> {
+			centro.setNombre(centroDetails.getNombre());
+			centro.setDireccion(centroDetails.getDireccion());
+			centro.setProvincia(centroDetails.getProvincia());
+			centro.setTipo(centroDetails.getTipo());
+			return centroEducativoRepository.save(centro);
+		}).orElse(null);
+	}
+
+	@Override
+	public void eliminarCentroEducativo(Long id) {
+		centroEducativoRepository.deleteById(id);
 	}
 
 }
