@@ -1,9 +1,9 @@
-import axios from 'axios';
+import apiClient from './axiosConfig';
 
-const API_URL = 'http://localhost:8080/api/usuarios';
+const API_URL_USUARIOS = '/usuarios';
 
 const obtenerTodosLosUsuarios = () => {
-    return axios.get(`${API_URL}/lista`);
+    return apiClient.get(`${API_URL_USUARIOS}/lista`);
 };
 
 // Función para crear un usuario según su rol
@@ -11,25 +11,25 @@ const crearUsuario = (usuarioData) => {
     const { rol, ...data } = usuarioData;
     switch (rol) {
         case 'ADMIN':
-            return axios.post(`${API_URL}/registrar-admin`, data);
+            return apiClient.post(`${API_URL_USUARIOS}/registrar-admin`, data);
         case 'GESTOR':
             // El backend espera centroId, no un objeto centro
             const gestorData = { ...data, centroId: data.centro.id };
             delete gestorData.centro;
-            return axios.post(`${API_URL}/registrar-gestor`, gestorData);
+            return apiClient.post(`${API_URL_USUARIOS}/registrar-gestor`, gestorData);
         case 'INVITADO':
-            return axios.post(`${API_URL}/registrar-invitado`, data);
+            return apiClient.post(`${API_URL_USUARIOS}/registrar-invitado`, data);
         default:
             return Promise.reject(new Error('Rol no válido'));
     }
 };
 
 const editarUsuario = (id, usuarioData) => {
-    return axios.put(`${API_URL}/editar/${id}`, usuarioData);
+    return apiClient.put(`${API_URL_USUARIOS}/editar/${id}`, usuarioData);
 };
 
 const eliminarUsuario = (id) => {
-    return axios.delete(`${API_URL}/eliminar/${id}`);
+    return apiClient.delete(`${API_URL_USUARIOS}/eliminar/${id}`);
 };
 
 const usuarioService = {

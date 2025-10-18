@@ -1,24 +1,22 @@
-import axios from 'axios';
+import apiClient from './axiosConfig';
 
-// URL base de tu API en el backend
-const API_URL = 'http://localhost:8080/api/centros';
+const API_URL_CENTROS = '/centros';
 
 const obtenerTodosLosCentros = () => {
-    return axios.get(`${API_URL}/lista`);
+    return apiClient.get(`${API_URL_CENTROS}/lista`);
 };
 
 const crearCentro = (centroData) => {
-    return axios.post(`${API_URL}/registrar`, centroData);
+    return apiClient.post(`${API_URL_CENTROS}/registrar`, centroData);
 };
 
 const editarCentro = (id, centroData) => {
-    return axios.put(`${API_URL}/editar/${id}`, centroData);
+    return apiClient.put(`${API_URL_CENTROS}/editar/${id}`, centroData);
 };
 
 const eliminarCentro = (id) => {
-    return axios.delete(`${API_URL}/eliminar/${id}`);
+    return apiClient.delete(`${API_URL_CENTROS}/eliminar/${id}`);
 };
-
 
 const centroService = {
     obtenerTodosLosCentros,
