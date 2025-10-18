@@ -1,5 +1,7 @@
 package unex.cum.tfg.siae.services;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import unex.cum.tfg.siae.model.Alumno;
@@ -49,6 +51,16 @@ public class MatriculaServiceImpl implements MatriculaService {
 		matricula.setAnioAcademico(dto.getAnioAcademico());
 
 		return matriculaRepository.save(matricula);
+	}
+
+	@Override
+	public List<Matricula> obtenerMatriculas() {
+		return matriculaRepository.findAll();
+	}
+
+	@Override
+	public List<Matricula> obtenerMatriculasPorCentro(Long centroId) {
+		return matriculaRepository.findByCentroEducativoId(centroId);
 	}
 
 }

@@ -1,6 +1,7 @@
 package unex.cum.tfg.siae.services;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,21 @@ public class AlumnoServiceImpl implements AlumnoService {
 	@Override
 	public void eliminarAlumno(Long id) {
 		alumnoRepository.deleteById(id);
+	}
+
+	@Override
+	public List<Alumno> obtenerAlumnosPorCentro(Long centroId) {
+		return alumnoRepository.findAlumnosByCentroId(centroId);
+	}
+
+	@Override
+	public List<Alumno> obtenerAlumnosSinCentro() {
+		return alumnoRepository.findAlumnosSinCentro();
+	}
+
+	@Override
+	public Optional<Alumno> obtenerAlumnoPorId(Long id) {
+		return alumnoRepository.findById(id);
 	}
 
 }

@@ -1,5 +1,7 @@
 package unex.cum.tfg.siae.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,6 +18,7 @@ public class Asignatura {
 	private String nombre;
 	
 	@ManyToOne
+	@JsonBackReference
 	private Curso curso;
 
 	public Long getId() {
