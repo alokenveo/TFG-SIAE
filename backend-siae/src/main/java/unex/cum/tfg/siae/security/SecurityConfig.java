@@ -1,8 +1,11 @@
 package unex.cum.tfg.siae.security;
 
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,11 +13,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.Arrays;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -50,30 +52,42 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http.csrf().disable() // Desactivamos CSRF (común en APIs stateless)
-				.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS) // No creamos sesiones
-				.and().authorizeHttpRequests(auth -> auth
-						// 1. Endpoints Públicos (Login y Registro de Invitado)
+		http
+				// 1. Configurar CORS usando la fuente definida
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+				// 2. Deshabilitar CSRF (importante para APIs stateless)
+				.csrf(csrf -> csrf.disable())
+
+				// 3. Configurar gestión de sesión como STATELESS
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+				// 4. Definir reglas de autorización
+				.authorizeHttpRequests(auth -> auth
+						// Permitir explícitamente peticiones OPTIONS (CORS preflight)
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+						// Endpoints Públicos
 						.requestMatchers("/api/auth/login").permitAll()
 						.requestMatchers("/api/usuarios/registrar-invitado").permitAll()
 
-						// 2. Endpoints de ADMIN (Gestión de Usuarios y Centros)
+						// Endpoints ADMIN
 						.requestMatchers("/api/usuarios/**").hasRole("ADMIN").requestMatchers("/api/centros/**")
 						.hasRole("ADMIN")
 
-						// 3. Endpoints de ADMIN y GESTOR (Gestión de Alumnos, Matrículas, Notas)
+						// Endpoints ADMIN y GESTOR
 						.requestMatchers("/api/alumnos/**").hasAnyRole("ADMIN", "GESTOR")
 						.requestMatchers("/api/matriculas/**").hasAnyRole("ADMIN", "GESTOR")
-						.requestMatchers("/api/notas/**").hasAnyRole("ADMIN", "GESTOR")
+						.requestMatchers("/api/notas/**").hasAnyRole("ADMIN", "GESTOR") // <-- Usa esta regla ahora
 
-						// 4. Endpoints de consulta (Lectura) para usuarios autenticados
+						// Endpoints Autenticados (consulta)
 						.requestMatchers("/api/oferta-educativa/**").authenticated()
 
-						// 5. El resto de peticiones requieren autenticación
-						.anyRequest().authenticated());
+						// Cualquier otra petición requiere autenticación
+						.anyRequest().authenticated())
 
-		// 6. Añadimos nuestro filtro JWT antes del filtro de username/password
-		http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+				// 5. Añadir el filtro JWT en la posición correcta
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}

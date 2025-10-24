@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.Administrador;
-import unex.cum.tfg.siae.model.GestorDTO;
 import unex.cum.tfg.siae.model.Invitado;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.GestorDTO;
 import unex.cum.tfg.siae.services.UsuarioService;
 
 @RestController

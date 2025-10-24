@@ -3,9 +3,9 @@ package unex.cum.tfg.siae.services;
 import java.util.List;
 
 import unex.cum.tfg.siae.model.Administrador;
-import unex.cum.tfg.siae.model.GestorDTO;
 import unex.cum.tfg.siae.model.Invitado;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.GestorDTO;
 
 public interface UsuarioService {
 

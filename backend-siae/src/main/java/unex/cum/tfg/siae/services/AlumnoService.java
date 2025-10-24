@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import unex.cum.tfg.siae.model.Alumno;
+import unex.cum.tfg.siae.model.dto.AlumnoDetalleDTO;
 
 public interface AlumnoService {
 
@@ -19,5 +20,5 @@ public interface AlumnoService {
 	
 	List<Alumno> obtenerAlumnosSinCentro();
 	
-	Optional<Alumno> obtenerAlumnoPorId(Long id);
+	AlumnoDetalleDTO obtenerAlumnoPorId(Long id);
 }

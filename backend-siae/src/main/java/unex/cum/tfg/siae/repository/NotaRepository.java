@@ -1,6 +1,7 @@
 package unex.cum.tfg.siae.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -21,6 +22,9 @@ public interface NotaRepository extends JpaRepository<Nota, Long> {
 	List<Nota> findByCursoId(Long cursoId);
 
 	List<Nota> findByAsignaturaId(Long asignaturaId);
+
+	Optional<Nota> findByAlumnoIdAndCursoIdAndAsignaturaIdAndAnioAcademico(Long alumnoId, Long cursoId,
+			Long asignaturaId, int anioAcademico);
 
 	List<Nota> findByAlumnoIdAndCursoIdAndAsignaturaId(Long alumnoId, Long cursoId, Long asignaturaId);
 

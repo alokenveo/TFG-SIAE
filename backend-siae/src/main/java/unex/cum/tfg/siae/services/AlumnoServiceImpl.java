@@ -1,11 +1,13 @@
 package unex.cum.tfg.siae.services;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import unex.cum.tfg.siae.model.Alumno;
+import unex.cum.tfg.siae.model.Matricula;
+import unex.cum.tfg.siae.model.dto.AlumnoDetalleDTO;
 import unex.cum.tfg.siae.repository.AlumnoRepository;
 
 @Service
@@ -54,8 +56,22 @@ public class AlumnoServiceImpl implements AlumnoService {
 	}
 
 	@Override
-	public Optional<Alumno> obtenerAlumnoPorId(Long id) {
-		return alumnoRepository.findById(id);
+	@Transactional(readOnly = true)
+	public AlumnoDetalleDTO obtenerAlumnoPorId(Long id) {
+		Alumno alumno = alumnoRepository.findById(id).orElse(null);
+		if (alumno.getMatriculas() != null) {
+			alumno.getMatriculas().size();
+
+			for (Matricula matricula : alumno.getMatriculas()) {
+				if (matricula.getCurso() != null) {
+					matricula.getCurso().getNombre();
+				}
+				if (matricula.getCentroEducativo() != null) {
+					matricula.getCentroEducativo().getNombre();
+				}
+			}
+		}
+		return new AlumnoDetalleDTO(alumno);
 	}
 
 }

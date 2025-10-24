@@ -1,4 +1,4 @@
-package unex.cum.tfg.siae.model;
+package unex.cum.tfg.siae.model.dto;
 
 public class GestorDTO {
 	private String nombre;

@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.GestorInstitucional;
 import unex.cum.tfg.siae.model.Matricula;
-import unex.cum.tfg.siae.model.MatriculaDTO;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.MatriculaDTO;
 import unex.cum.tfg.siae.security.CustomUserDetails;
 import unex.cum.tfg.siae.services.MatriculaService;
 

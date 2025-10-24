@@ -6,14 +6,15 @@ import java.util.Optional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import unex.cum.tfg.siae.model.Alumno;
 import unex.cum.tfg.siae.model.Asignatura;
 import unex.cum.tfg.siae.model.Curso;
 import unex.cum.tfg.siae.model.GestorInstitucional;
 import unex.cum.tfg.siae.model.Nota;
-import unex.cum.tfg.siae.model.NotaDTO;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.NotaDTO;
 import unex.cum.tfg.siae.repository.AlumnoRepository;
 import unex.cum.tfg.siae.repository.AsignaturaRepository;
 import unex.cum.tfg.siae.repository.CursoRepository;
@@ -58,40 +59,33 @@ public class NotaServiceImpl implements NotaService {
 
 	// --- Registrar nota ---
 	@Override
+	@Transactional
 	public Nota registrarNota(NotaDTO dto) {
-		// Validación: si es Gestor, solo puede registrar notas de alumnos de su centro
-		Optional<Long> centroIdOpt = getCentroIdGestorActual();
-		if (centroIdOpt.isPresent()) {
-			Long centroIdGestor = centroIdOpt.get();
+		Optional<Nota> notaExistenteOpt = notaRepo.findByAlumnoIdAndCursoIdAndAsignaturaIdAndAnioAcademico(
+				dto.getAlumnoId(), dto.getCursoId(), dto.getAsignaturaId(), dto.getAnioAcademico());
 
+		Nota notaAGuardar;
+
+		if (notaExistenteOpt.isPresent()) {
+			notaAGuardar = notaExistenteOpt.get();
+			notaAGuardar.setCalificacion(dto.getCalificacion());
+		} else {
 			Alumno alumno = alumnoRepo.findById(dto.getAlumnoId())
 					.orElseThrow(() -> new RuntimeException("Alumno no encontrado"));
+			Asignatura asignatura = asignaturaRepo.findById(dto.getAsignaturaId())
+					.orElseThrow(() -> new RuntimeException("Asignatura no encontrada"));
+			Curso curso = cursoRepo.findById(dto.getCursoId())
+					.orElseThrow(() -> new RuntimeException("Curso no encontrado"));
 
-			boolean perteneceAlCentro = alumno.getMatriculas() != null && alumno.getMatriculas().stream().anyMatch(
-					m -> m.getCentroEducativo() != null && m.getCentroEducativo().getId().equals(centroIdGestor));
-
-			if (!perteneceAlCentro) {
-				throw new SecurityException(
-						"Acceso denegado: No puedes registrar notas para alumnos de otros centros.");
-			}
+			notaAGuardar = new Nota();
+			notaAGuardar.setAlumno(alumno);
+			notaAGuardar.setAsignatura(asignatura);
+			notaAGuardar.setCurso(curso);
+			notaAGuardar.setAnioAcademico(dto.getAnioAcademico());
+			notaAGuardar.setCalificacion(dto.getCalificacion());
 		}
 
-		// Obtener entidades
-		Alumno alumno = alumnoRepo.findById(dto.getAlumnoId())
-				.orElseThrow(() -> new RuntimeException("Alumno no encontrado"));
-		Asignatura asignatura = asignaturaRepo.findById(dto.getAsignaturaId())
-				.orElseThrow(() -> new RuntimeException("Asignatura no encontrada"));
-		Curso curso = cursoRepo.findById(dto.getCursoId())
-				.orElseThrow(() -> new RuntimeException("Curso no encontrado"));
-
-		Nota nota = new Nota();
-		nota.setAlumno(alumno);
-		nota.setAsignatura(asignatura);
-		nota.setCurso(curso);
-		nota.setAnioAcademico(dto.getAnioAcademico());
-		nota.setCalificacion(dto.getCalificacion());
-
-		return notaRepo.save(nota);
+		return notaRepo.save(notaAGuardar);
 	}
 
 	// --- Listar todas las notas (filtrado por rol) ---

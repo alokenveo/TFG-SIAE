@@ -3,7 +3,7 @@ package unex.cum.tfg.siae.services;
 import java.util.List;
 
 import unex.cum.tfg.siae.model.Nota;
-import unex.cum.tfg.siae.model.NotaDTO;
+import unex.cum.tfg.siae.model.dto.NotaDTO;
 
 public interface NotaService {
 	

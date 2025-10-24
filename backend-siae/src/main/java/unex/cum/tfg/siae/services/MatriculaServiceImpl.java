@@ -8,7 +8,7 @@ import unex.cum.tfg.siae.model.Alumno;
 import unex.cum.tfg.siae.model.CentroEducativo;
 import unex.cum.tfg.siae.model.Curso;
 import unex.cum.tfg.siae.model.Matricula;
-import unex.cum.tfg.siae.model.MatriculaDTO;
+import unex.cum.tfg.siae.model.dto.MatriculaDTO;
 import unex.cum.tfg.siae.repository.AlumnoRepository;
 import unex.cum.tfg.siae.repository.CentroEducativoRepository;
 import unex.cum.tfg.siae.repository.CursoRepository;

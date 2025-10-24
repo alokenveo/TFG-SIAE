@@ -1,13 +1,13 @@
-package unex.cum.tfg.siae.model;
+package unex.cum.tfg.siae.model.dto;
 
-public class NotaDTO {
+public class MatriculaDTO {
 
 	private Long alumnoId;
-	private Long asignaturaId;
+	private Long centroEducativoId;
 	private Long cursoId;
 	private int anioAcademico;
-	private Double calificacion;
 
+	// Getters y Setters
 	public Long getAlumnoId() {
 		return alumnoId;
 	}
@@ -16,12 +16,12 @@ public class NotaDTO {
 		this.alumnoId = alumnoId;
 	}
 
-	public Long getAsignaturaId() {
-		return asignaturaId;
+	public Long getCentroEducativoId() {
+		return centroEducativoId;
 	}
 
-	public void setAsignaturaId(Long asignaturaId) {
-		this.asignaturaId = asignaturaId;
+	public void setCentroEducativoId(Long centroEducativoId) {
+		this.centroEducativoId = centroEducativoId;
 	}
 
 	public Long getCursoId() {
@@ -38,13 +38,5 @@ public class NotaDTO {
 
 	public void setAnioAcademico(int anioAcademico) {
 		this.anioAcademico = anioAcademico;
-	}
-
-	public Double getCalificacion() {
-		return calificacion;
-	}
-
-	public void setCalificacion(Double calificacion) {
-		this.calificacion = calificacion;
 	}
 }

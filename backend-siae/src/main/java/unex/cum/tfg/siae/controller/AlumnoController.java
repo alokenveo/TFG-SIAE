@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import unex.cum.tfg.siae.model.Alumno;
 import unex.cum.tfg.siae.model.GestorInstitucional;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.AlumnoDetalleDTO;
 import unex.cum.tfg.siae.security.CustomUserDetails;
 import unex.cum.tfg.siae.services.AlumnoService;
 
@@ -90,8 +91,8 @@ public class AlumnoController {
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<Alumno> obtenerAlumnoPorId(@PathVariable Long id) {
-		Alumno alumno = alumnoService.obtenerAlumnoPorId(id).get();
+	public ResponseEntity<AlumnoDetalleDTO> obtenerAlumnoPorId(@PathVariable Long id) {
+		AlumnoDetalleDTO alumno = alumnoService.obtenerAlumnoPorId(id);
 		return ResponseEntity.ok(alumno);
 	}
 

@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 function MatriculaForm({ matricula, setMatricula }) {
     const { usuario } = useAuth();
+    const isGestor = usuario?.rol === 'GESTOR';
     // Estado para las listas de los selectores
     const [listas, setListas] = useState({
         alumnos: [],
@@ -37,6 +38,13 @@ function MatriculaForm({ matricula, setMatricula }) {
                     centros: Array.isArray(centrosRes.data) ? centrosRes.data : [],
                     niveles: Array.isArray(nivelesRes.data) ? nivelesRes.data : [],
                 }));
+
+                if (isGestor && usuario.centro?.id) {
+                    setMatricula(prev => ({
+                        ...prev,
+                        centroEducativoId: usuario.centro.id
+                    }));
+                }
 
             } catch (error) {
                 console.error("Error al cargar datos iniciales del formulario:", error);
@@ -83,7 +91,7 @@ function MatriculaForm({ matricula, setMatricula }) {
             <TextField
                 select fullWidth margin="normal" label="Centro Educativo"
                 name="centroEducativoId" value={matricula.centroEducativoId || ''}
-                onChange={handleChange} required disabled={loading.centros}
+                onChange={handleChange} required disabled={loading.centros || isGestor}
             >
                 {listas.centros.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
             </TextField>

@@ -7,10 +7,10 @@ import org.springframework.stereotype.Service;
 
 import unex.cum.tfg.siae.model.Administrador;
 import unex.cum.tfg.siae.model.CentroEducativo;
-import unex.cum.tfg.siae.model.GestorDTO;
 import unex.cum.tfg.siae.model.GestorInstitucional;
 import unex.cum.tfg.siae.model.Invitado;
 import unex.cum.tfg.siae.model.Usuario;
+import unex.cum.tfg.siae.model.dto.GestorDTO;
 import unex.cum.tfg.siae.repository.CentroEducativoRepository;
 import unex.cum.tfg.siae.repository.UsuarioRepository;
 
