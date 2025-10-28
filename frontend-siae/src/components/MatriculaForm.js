@@ -1,61 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, MenuItem, Box, CircularProgress, Grid } from '@mui/material';
+import { TextField, MenuItem, Box, CircularProgress, Grid, Autocomplete } from '@mui/material';
 import alumnoService from '../api/alumnoService';
 import centroService from '../api/centroService';
 import ofertaEducativaService from '../api/ofertaEducativaService';
 import { useAuth } from '../context/AuthContext';
 
+// Lista fija de provincias
+const PROVINCIAS = [
+    'ANNOBON', 'BIOKO_NORTE', 'BIOKO_SUR', 'CENTRO_SUR', 'DJIBLOHO', 'KIE_NTEM', 'LITORAL', 'WELE_NZAS'
+];
+
 function MatriculaForm({ matricula, setMatricula }) {
     const { usuario } = useAuth();
-    const isGestor = usuario?.rol === 'GESTOR';
     // Estado para las listas de los selectores
     const [listas, setListas] = useState({
-        alumnos: [],
-        centros: [],
+        centrosPorProvincia: [],
         niveles: [],
         cursos: [],
     });
     // Estado para las cargas
     const [loading, setLoading] = useState({
-        alumnos: true,
-        centros: true,
+        dniLoading: false,
+        centrosLoading: false,
         niveles: true,
         cursos: false, // Cursos solo carga después de seleccionar nivel
     });
 
+    const [dni, setDni] = useState('');
+    const [alumnoEncontrado, setAlumnoEncontrado] = useState(null);
+    const [provincia, setProvincia] = useState('');
+
     // 1. Cargar datos iniciales (alumnos, centros, niveles) al montar el form
     useEffect(() => {
         async function loadInitialData() {
+            setLoading(prev => ({ ...prev, niveles: true }));
             try {
-                const [alumnosRes, centrosRes, nivelesRes] = await Promise.all([
-                    alumnoService.obtenerAlumnosSinCentro(),
-                    centroService.obtenerTodosLosCentros(),
-                    ofertaEducativaService.obtenerNiveles(),
-                ]);
+                // Ya no cargamos alumnos ni todos los centros
+                const nivelesRes = await ofertaEducativaService.obtenerNiveles();
                 setListas(prev => ({
                     ...prev,
-                    alumnos: Array.isArray(alumnosRes.data) ? alumnosRes.data : [],
-                    centros: Array.isArray(centrosRes.data) ? centrosRes.data : [],
+                    centrosPorProvincia: [],
                     niveles: Array.isArray(nivelesRes.data) ? nivelesRes.data : [],
+                    cursos: [],
                 }));
-
-                if (isGestor && usuario.centro?.id) {
-                    setMatricula(prev => ({
-                        ...prev,
-                        centroEducativoId: usuario.centro.id
-                    }));
-                }
 
             } catch (error) {
                 console.error("Error al cargar datos iniciales del formulario:", error);
             } finally {
-                setLoading(prev => ({ ...prev, alumnos: false, centros: false, niveles: false }));
+                setLoading(prev => ({ ...prev, niveles: false }));
             }
         }
         if (usuario) {
             loadInitialData();
         }
     }, [usuario]);
+
+    const handleBuscarDni = async () => {
+        if (!dni) return;
+        setLoading(prev => ({ ...prev, dniLoading: true }));
+        setAlumnoEncontrado(null);
+        setMatricula({ ...matricula, alumnoId: '' });
+        try {
+            // Usamos el servicio de alumno para buscar por DNI
+            const response = await alumnoService.obtenerAlumnoPorDNI(dni);
+            const alumno = response.data;
+            if (alumno) {
+                setAlumnoEncontrado(alumno);
+                setMatricula(prev => ({ ...prev, alumnoId: alumno.id }));
+            }
+        } catch (error) {
+            console.error("Error al buscar alumno por DNI:", error);
+            setAlumnoEncontrado({ error: 'Error al buscar. Verifique el DNI o si el alumno existe.' });
+        } finally {
+            setLoading(prev => ({ ...prev, dniLoading: false }));
+        }
+    };
+
+    // 3. Manejador para cuando cambia la provincia
+    const handleProvinciaChange = async (event) => {
+        const nuevaProvincia = event.target.value;
+        setProvincia(nuevaProvincia);
+
+        // Limpiar centros y selección anterior
+        setListas(prev => ({ ...prev, centrosPorProvincia: [] }));
+        setMatricula(prev => ({ ...prev, centroEducativoId: '' }));
+
+        if (nuevaProvincia) {
+            setLoading(prev => ({ ...prev, centrosLoading: true }));
+            try {
+                // Usamos el servicio de centro para traer por provincia
+                const response = await centroService.obtenerCentrosPorProvincia(nuevaProvincia);
+                setListas(prev => ({
+                    ...prev,
+                    centrosPorProvincia: Array.isArray(response.data) ? response.data : [],
+                }));
+            } catch (error) {
+                console.error("Error al cargar centros por provincia:", error);
+                setListas(prev => ({ ...prev, centrosPorProvincia: [] }));
+            } finally {
+                setLoading(prev => ({ ...prev, centrosLoading: false }));
+            }
+        }
+    };
+
+    // 4. Manejador para el Autocomplete de Centro
+    const handleCentroChange = (event, newValue) => {
+        setMatricula(prev => ({ ...prev, centroEducativoId: newValue ? newValue.id : '' }));
+    };
 
     const handleNivelChange = async (nivelId) => {
         setMatricula({ ...matricula, nivelId: nivelId, cursoId: '' });
@@ -80,23 +131,73 @@ function MatriculaForm({ matricula, setMatricula }) {
 
     return (
         <Box component="form" noValidate autoComplete="off">
-            <TextField
-                select fullWidth margin="normal" label="Alumno"
-                name="alumnoId" value={matricula.alumnoId || ''}
-                onChange={handleChange} required disabled={loading.alumnos}
-            >
-                {listas.alumnos.map(a => <MenuItem key={a.id} value={a.id}>{a.nombre} {a.apellidos}</MenuItem>)}
-            </TextField>
 
+            {/* --- CAMPO DNI --- */}
             <TextField
-                select fullWidth margin="normal" label="Centro Educativo"
-                name="centroEducativoId" value={matricula.centroEducativoId || ''}
-                onChange={handleChange} required disabled={loading.centros || isGestor}
-            >
-                {listas.centros.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
-            </TextField>
+                fullWidth margin="normal" label="DNI del Alumno"
+                name="dni" value={dni}
+                onChange={(e) => setDni(e.target.value)}
+                onBlur={handleBuscarDni} // Busca al salir del campo
+                required
+                InputProps={{
+                    endAdornment: (
+                        <React.Fragment>
+                            {loading.dniLoading && <CircularProgress size={20} />}
+                        </React.Fragment>
+                    ),
+                }}
+            />
+            {/* Mensaje de confirmación de alumno */}
+            {alumnoEncontrado && (
+                <Box sx={{ mb: 1, p: 1, borderRadius: 1, bgcolor: alumnoEncontrado.error ? '#ffebee' : '#e8f5e9', color: alumnoEncontrado.error ? 'red' : 'green' }}>
+                    {alumnoEncontrado.error
+                        ? alumnoEncontrado.error
+                        : `Alumno: ${alumnoEncontrado.nombre} ${alumnoEncontrado.apellidos}`
+                    }
+                </Box>
+            )}
 
-            {/* Selectores dinámicos */}
+            {/* --- SELECTORES PROVINCIA Y CENTRO --- */}
+            <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                    <TextField
+                        select fullWidth margin="normal" label="Provincia"
+                        value={provincia}
+                        onChange={handleProvinciaChange} required
+                    >
+                        <MenuItem value=""><em>Seleccione provincia</em></MenuItem>
+                        {PROVINCIAS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                    </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                    <Autocomplete
+                        options={listas.centrosPorProvincia}
+                        getOptionLabel={(option) => option.nombre || ''}
+                        onChange={handleCentroChange}
+                        loading={loading.centrosLoading}
+                        disabled={!provincia || loading.centrosLoading}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Centro Educativo"
+                                margin="normal"
+                                required
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <React.Fragment>
+                                            {loading.centrosLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </React.Fragment>
+                                    ),
+                                }}
+                            />
+                        )}
+                    />
+                </Grid>
+            </Grid>
+
+            {/* --- SELECTORES NIVEL Y CURSO --- */}
             <Grid container spacing={2}>
                 <Grid item xs={6}>
                     <TextField
