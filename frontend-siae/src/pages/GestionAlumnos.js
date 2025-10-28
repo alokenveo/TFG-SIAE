@@ -197,12 +197,6 @@ function GestionAlumnos() {
                         onChange={handleFiltroFechaFinChange}
                     />
                 </Grid>
-                {/* Botón de "Limpiar Filtros" */}
-                <Grid item xs={12} sm={12} md={3}>
-                    <Button onClick={() => { setFiltroTexto(''); setFiltroSexo('TODOS'); setFiltroFechaInicio(''); setFiltroFechaFin(''); }}>
-                        Limpiar Filtros
-                    </Button>
-                </Grid>
             </Grid>
 
             {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)

@@ -12,6 +12,8 @@ const PROVINCIAS = [
 
 function MatriculaForm({ matricula, setMatricula }) {
     const { usuario } = useAuth();
+    const isGestor = usuario?.rol === 'GESTOR';
+
     // Estado para las listas de los selectores
     const [listas, setListas] = useState({
         centrosPorProvincia: [],
@@ -30,13 +32,24 @@ function MatriculaForm({ matricula, setMatricula }) {
     const [alumnoEncontrado, setAlumnoEncontrado] = useState(null);
     const [provincia, setProvincia] = useState('');
 
-    // 1. Cargar datos iniciales (alumnos, centros, niveles) al montar el form
+    const [selectedCentro, setSelectedCentro] = useState(null);
+
+
     useEffect(() => {
         async function loadInitialData() {
             setLoading(prev => ({ ...prev, niveles: true }));
             try {
-                // Ya no cargamos alumnos ni todos los centros
                 const nivelesRes = await ofertaEducativaService.obtenerNiveles();
+
+                if (isGestor && usuario.centro) {
+                    setProvincia(usuario.centro.provincia);
+                    setSelectedCentro(usuario.centro);
+                    setMatricula(prev => ({
+                        ...prev,
+                        centroEducativoId: usuario.centro.id
+                    }));
+                }
+
                 setListas(prev => ({
                     ...prev,
                     centrosPorProvincia: [],
@@ -53,7 +66,7 @@ function MatriculaForm({ matricula, setMatricula }) {
         if (usuario) {
             loadInitialData();
         }
-    }, [usuario]);
+    }, [usuario, isGestor, setMatricula]);
 
     const handleBuscarDni = async () => {
         if (!dni) return;
@@ -61,7 +74,6 @@ function MatriculaForm({ matricula, setMatricula }) {
         setAlumnoEncontrado(null);
         setMatricula({ ...matricula, alumnoId: '' });
         try {
-            // Usamos el servicio de alumno para buscar por DNI
             const response = await alumnoService.obtenerAlumnoPorDNI(dni);
             const alumno = response.data;
             if (alumno) {
@@ -78,6 +90,8 @@ function MatriculaForm({ matricula, setMatricula }) {
 
     // 3. Manejador para cuando cambia la provincia
     const handleProvinciaChange = async (event) => {
+        if (isGestor) return;
+
         const nuevaProvincia = event.target.value;
         setProvincia(nuevaProvincia);
 
@@ -105,6 +119,10 @@ function MatriculaForm({ matricula, setMatricula }) {
 
     // 4. Manejador para el Autocomplete de Centro
     const handleCentroChange = (event, newValue) => {
+        if (isGestor) return;
+
+        setSelectedCentro(newValue);
+
         setMatricula(prev => ({ ...prev, centroEducativoId: newValue ? newValue.id : '' }));
     };
 
@@ -162,8 +180,10 @@ function MatriculaForm({ matricula, setMatricula }) {
                 <Grid item xs={12} sm={6}>
                     <TextField
                         select fullWidth margin="normal" label="Provincia"
-                        value={provincia}
-                        onChange={handleProvinciaChange} required
+                        value={provincia} // El estado 'provincia' se fija en el useEffect si es GESTOR
+                        onChange={handleProvinciaChange}
+                        required
+                        disabled={isGestor} // <-- ¡BLOQUEADO PARA GESTOR!
                     >
                         <MenuItem value=""><em>Seleccione provincia</em></MenuItem>
                         {PROVINCIAS.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
@@ -173,9 +193,15 @@ function MatriculaForm({ matricula, setMatricula }) {
                     <Autocomplete
                         options={listas.centrosPorProvincia}
                         getOptionLabel={(option) => option.nombre || ''}
+
+                        // --- ¡CAMBIO CLAVE! Usamos el nuevo estado 'selectedCentro' ---
+                        value={selectedCentro}
+
                         onChange={handleCentroChange}
                         loading={loading.centrosLoading}
-                        disabled={!provincia || loading.centrosLoading}
+                        // Bloqueado si es gestor, o si no hay provincia, o si están cargando centros
+                        disabled={isGestor || !provincia || loading.centrosLoading}
+
                         renderInput={(params) => (
                             <TextField
                                 {...params}

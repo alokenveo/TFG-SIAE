@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell, Select, MenuItem, InputLabel, FormControl,
@@ -24,17 +24,17 @@ const style = {
 };
 
 function HistorialAlumno() {
-    const { alumnoId } = useParams(); // Obtener el ID del alumno de la URL
+    const { alumnoId } = useParams();
     const navigate = useNavigate();
     const [alumno, setAlumno] = useState(null);
     const [notas, setNotas] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState(''); // Año seleccionado en el filtro
-    const [availableYears, setAvailableYears] = useState([]); // Años disponibles en las notas
+    const [selectedYear, setSelectedYear] = useState('');
+    const [availableYears, setAvailableYears] = useState([]);
     const [openModal, setOpenModal] = useState(false);
     const [nuevaNota, setNuevaNota] = useState({});
 
-    const cargarDatos = async () => {
+    const cargarDatos = useCallback(async () => {
         setLoading(true);
         try {
             const [alumnoRes, notasRes] = await Promise.all([
@@ -47,19 +47,11 @@ function HistorialAlumno() {
             const notasData = Array.isArray(notasRes.data) ? notasRes.data : [];
             setNotas(notasData);
 
-            // Extraer años únicos de las notas para el selector
-            const years = [...new Set(notasData.map(n => n.anioAcademico))].sort((a, b) => b - a); // Ordenar descendente
-            setAvailableYears(years);
-            if (selectedYear === '' || !years.includes(selectedYear)) {
-                setSelectedYear(years.length > 0 ? years[0] : '');
-            }
-
         } catch (error) {
             console.error("Error al cargar datos del historial:", error);
-            // Podríamos mostrar un mensaje de error o redirigir
             if (error.response && error.response.status === 403) {
                 alert("No tienes permiso para ver las notas de este alumno.");
-                navigate('/alumnos'); // O a donde corresponda
+                navigate('/alumnos');
             } else if (error.response && error.response.status === 404) {
                 alert("Alumno no encontrado.");
                 navigate('/alumnos');
@@ -69,20 +61,31 @@ function HistorialAlumno() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [alumnoId, navigate]);
 
     useEffect(() => {
         cargarDatos();
-    }, [alumnoId, navigate]); // Dependencia: si cambia el ID, recargar
+    }, [cargarDatos]);
+
+    useEffect(() => {
+        if (notas.length > 0) {
+            const years = [...new Set(notas.map(n => n.anioAcademico))].sort((a, b) => b - a);
+            setAvailableYears(years);
+            if (selectedYear === '' || !years.includes(selectedYear)) {
+                setSelectedYear(years.length > 0 ? years[0] : '');
+            }
+        } else {
+            setAvailableYears([]);
+            setSelectedYear('');
+        }
+    }, [notas, selectedYear]);
 
     const handleOpen = () => {
-        // Pre-rellenar alumnoId y quizás año académico actual
         setNuevaNota({
-            alumnoId: parseInt(alumnoId, 10), // Asegurar que es número
-            anioAcademico: selectedYear || (availableYears.length > 0 ? availableYears[0] : new Date().getFullYear()), // Año actual o el filtrado
-            cursoId: '', // Curso se selecciona en el form
+            alumnoId: parseInt(alumnoId, 10),
+            anioAcademico: selectedYear || (availableYears.length > 0 ? availableYears[0] : new Date().getFullYear()),
+            cursoId: '',
             asignaturaId: '',
-            evaluacion: '',
             calificacion: null,
         });
         setOpenModal(true);
@@ -90,26 +93,24 @@ function HistorialAlumno() {
 
     const handleClose = () => {
         setOpenModal(false);
-        setNuevaNota({}); // Limpiar
+        setNuevaNota({});
     };
 
     const handleSave = async () => {
         try {
-            // Validaciones básicas (se pueden mejorar)
             if (!nuevaNota.cursoId || !nuevaNota.asignaturaId || nuevaNota.calificacion === null) {
                 alert("Por favor, completa todos los campos requeridos.");
                 return;
             }
 
-            // El DTO espera año como número, calificación como double
             const dto = {
                 ...nuevaNota,
                 anioAcademico: parseInt(nuevaNota.anioAcademico, 10),
-                calificacion: parseFloat(nuevaNota.calificacion) // Ya debería ser número por el form, pero aseguramos
+                calificacion: parseFloat(nuevaNota.calificacion)
             };
             await notaService.registrarNota(dto);
             handleClose();
-            cargarDatos(); // Recargar notas para ver la nueva
+            cargarDatos();
         } catch (error) {
             console.error("Error al registrar la nota:", error);
             alert(`Error al guardar: ${error.response?.data?.message || error.message}`);
@@ -124,11 +125,7 @@ function HistorialAlumno() {
     };
 
     const getCentroNombre = () => {
-        // Asumiendo que el alumno tiene una lista de matrículas
-        // y queremos mostrar el centro de la matrícula más reciente
         if (alumno && alumno.matriculas && alumno.matriculas.length > 0) {
-            // Ordenar matrículas por año (si es necesario) o simplemente tomar la primera/última
-            // Aquí asumimos que la relación carga el objeto CentroEducativo
             return alumno.matriculas[0]?.centroEducativo?.nombre || 'Centro no disponible';
         }
         return 'Sin centro asociado';
@@ -136,7 +133,6 @@ function HistorialAlumno() {
 
     const getCursosDelAlumno = () => {
         if (!alumno || !alumno.matriculas) return [];
-        // Mapear las matrículas a objetos {id, nombre} de curso, evitando duplicados
         const cursosMap = new Map();
         alumno.matriculas.forEach(m => {
             if (m.curso) {
@@ -147,10 +143,10 @@ function HistorialAlumno() {
     }
 
 
-    if (loading && !alumno) { // Mostrar spinner solo en carga inicial
+    if (loading && !alumno) {
         return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
     }
-    if (!alumno && !loading) { // Si terminó de cargar y no hay alumno
+    if (!alumno && !loading) {
         return <Typography sx={{ mt: 4, textAlign: 'center' }}>No se pudieron cargar los datos del alumno.</Typography>;
     }
 
@@ -158,7 +154,6 @@ function HistorialAlumno() {
     return (
         <Box>
             <Toolbar />
-            {/* Cabecera con Nombre, Centro y Botón Volver */}
             <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
                 <Grid item>
                     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/alumnos')}>
@@ -205,7 +200,6 @@ function HistorialAlumno() {
                         <TableRow>
                             <TableCell>Curso</TableCell>
                             <TableCell>Asignatura</TableCell>
-                            <TableCell>Evaluación</TableCell>
                             <TableCell>Calificación</TableCell>
                         </TableRow>
                     </TableHead>
@@ -219,7 +213,6 @@ function HistorialAlumno() {
                                 <TableRow key={nota.id}>
                                     <TableCell>{nota.curso.nombre}</TableCell>
                                     <TableCell>{nota.asignatura.nombre}</TableCell>
-                                    <TableCell>{nota.evaluacion}</TableCell>
                                     <TableCell>{nota.calificacion}</TableCell>
                                 </TableRow>
                             ))
@@ -241,7 +234,7 @@ function HistorialAlumno() {
                         <NotaForm
                             nota={nuevaNota}
                             setNota={setNuevaNota}
-                            cursosDelAlumno={getCursosDelAlumno()} // Pasar los cursos del alumno
+                            cursosDelAlumno={getCursosDelAlumno()}
                         />
                         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                             <Button onClick={handleClose}>Cancelar</Button>

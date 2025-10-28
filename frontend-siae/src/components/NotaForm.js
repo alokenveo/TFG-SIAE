@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { TextField, MenuItem, Box, CircularProgress, Grid } from '@mui/material';
 import ofertaEducativaService from '../api/ofertaEducativaService';
 
-// Opciones fijas (puedes ajustarlas)
-const evaluaciones = ["1ª Evaluación", "2ª Evaluación", "3ª Evaluación", "Final Ordinaria", "Final Extraordinaria"];
-
 // Componente Formulario
 function NotaForm({ nota, setNota, cursosDelAlumno }) { // Recibe los cursos del alumno como prop
   const [asignaturas, setAsignaturas] = useState([]);
@@ -95,15 +92,6 @@ function NotaForm({ nota, setNota, cursosDelAlumno }) { // Recibe los cursos del
             placeholder="Ej: 2024" // O podrías hacerlo selector si prefieres
           />
         </Grid>
-         <Grid item xs={6}>
-           <TextField
-            select fullWidth margin="normal" label="Evaluación"
-            name="evaluacion" value={nota.evaluacion || ''}
-            onChange={handleChange} required
-          >
-            {evaluaciones.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
-          </TextField>
-         </Grid>
       </Grid>
 
       <TextField
