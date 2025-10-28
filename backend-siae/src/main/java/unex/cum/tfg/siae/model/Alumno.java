@@ -12,6 +12,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
 @Entity
@@ -29,6 +31,10 @@ public class Alumno {
 	
 	@Enumerated(EnumType.STRING)
 	private Sexo sexo;
+	
+	@ManyToOne
+    @JoinColumn(name = "centro_educativo_id")
+    private CentroEducativo centroEducativo;
 	
 	@OneToMany(mappedBy = "alumno")
 	@JsonIgnore
@@ -80,6 +86,14 @@ public class Alumno {
 
 	public void setSexo(Sexo sexo) {
 		this.sexo = sexo;
+	}
+
+	public CentroEducativo getCentroEducativo() {
+		return centroEducativo;
+	}
+
+	public void setCentroEducativo(CentroEducativo centroEducativo) {
+		this.centroEducativo = centroEducativo;
 	}
 
 	public List<Matricula> getMatriculas() {
