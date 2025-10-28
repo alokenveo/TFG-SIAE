@@ -70,6 +70,8 @@ public class SecurityConfig {
 						// Endpoints Públicos
 						.requestMatchers("/api/auth/login").permitAll()
 						.requestMatchers("/api/usuarios/registrar-invitado").permitAll()
+						.requestMatchers("/api/auth/request-reset").permitAll()
+						.requestMatchers("/api/auth/reset-password").permitAll()
 
 						// Endpoints ADMIN
 						.requestMatchers("/api/usuarios/**").hasRole("ADMIN").requestMatchers("/api/centros/**")
@@ -78,7 +80,8 @@ public class SecurityConfig {
 						// Endpoints ADMIN y GESTOR
 						.requestMatchers("/api/alumnos/**").hasAnyRole("ADMIN", "GESTOR")
 						.requestMatchers("/api/matriculas/**").hasAnyRole("ADMIN", "GESTOR")
-						.requestMatchers("/api/notas/**").hasAnyRole("ADMIN", "GESTOR") // <-- Usa esta regla ahora
+						.requestMatchers("/api/notas/**").hasAnyRole("ADMIN", "GESTOR")
+						.requestMatchers("/api/personal/**").hasAnyRole("ADMIN", "GESTOR")
 
 						// Endpoints Autenticados (consulta)
 						.requestMatchers("/api/oferta-educativa/**").authenticated()

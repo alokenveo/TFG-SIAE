@@ -12,6 +12,9 @@ import GestionAlumnos from './pages/GestionAlumnos';
 import GestionUsuarios from './pages/GestionUsuarios';
 import GestionMatriculas from './pages/GestionMatriculas';
 import HistorialAlumno from './pages/HistorialAlumno';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import GestionPersonal from './pages/GestionPersonal';
 
 
 function PrivateRoute({ children }) {
@@ -64,6 +67,8 @@ function App() {
           path="/login"
           element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
         />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* --- RUTAS PRIVADAS ACTUALIZADAS --- */}
 
@@ -141,6 +146,19 @@ function App() {
               <RoleBasedRoute roles={['ADMIN', 'GESTOR']}>
                 <MainLayout>
                   <HistorialAlumno />
+                </MainLayout>
+              </RoleBasedRoute>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/personal"
+          element={
+            <PrivateRoute>
+              <RoleBasedRoute roles={['ADMIN', 'GESTOR']}>
+                <MainLayout>
+                  <GestionPersonal />
                 </MainLayout>
               </RoleBasedRoute>
             </PrivateRoute>

@@ -4,6 +4,7 @@ import { Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Too
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SchoolIcon from '@mui/icons-material/School';
 import PeopleIcon from '@mui/icons-material/People';
+import BadgeIcon from '@mui/icons-material/Badge';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import { useAuth } from '../../context/AuthContext';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -16,30 +17,36 @@ const allMenuItems = [
     text: 'Dashboard', 
     icon: <DashboardIcon />, 
     path: '/', 
-    roles: ['ADMIN', 'GESTOR', 'INVITADO'] // Todos pueden ver el dashboard
+    roles: ['ADMIN', 'GESTOR', 'INVITADO']
   },
   { 
     text: 'Centros', 
     icon: <SchoolIcon />, 
     path: '/centros',
-    roles: ['ADMIN'] // Solo ADMIN
+    roles: ['ADMIN']
   },
   { 
     text: 'Alumnos', 
     icon: <PeopleIcon />, 
     path: '/alumnos',
-    roles: ['ADMIN', 'GESTOR'] // ADMIN y GESTOR
+    roles: ['ADMIN', 'GESTOR']
   },
   { 
     text: 'Usuarios', 
     icon: <SupervisorAccountIcon />, 
     path: '/usuarios',
-    roles: ['ADMIN'] // Solo ADMIN
+    roles: ['ADMIN']
   },
   {
     text: 'Matrículas',
     icon: <AssignmentIndIcon />,
     path: '/matriculas',
+    roles: ['ADMIN', 'GESTOR']
+  },
+  {
+    text: 'Personal',
+    icon: <BadgeIcon />,
+    path: '/personal',
     roles: ['ADMIN', 'GESTOR']
   }
 ];

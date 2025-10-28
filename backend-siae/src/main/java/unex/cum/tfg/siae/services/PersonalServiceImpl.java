@@ -1,0 +1,100 @@
+package unex.cum.tfg.siae.services;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import unex.cum.tfg.siae.model.Personal;
+import unex.cum.tfg.siae.model.dto.PersonalDTO;
+import unex.cum.tfg.siae.repository.CentroEducativoRepository;
+import unex.cum.tfg.siae.repository.PersonalRepository;
+
+@Service
+public class PersonalServiceImpl implements PersonalService {
+
+	private final PersonalRepository personalRepository;
+	private final CentroEducativoRepository centroEducativoRepository;
+
+	public PersonalServiceImpl(PersonalRepository personalRepository,
+			CentroEducativoRepository centroEducativoRepository) {
+		this.personalRepository = personalRepository;
+		this.centroEducativoRepository = centroEducativoRepository;
+	}
+
+	private void validarDni(String dni) {
+		if (dni == null || !dni.matches("^[0-9]{8}[A-Za-z]$")) {
+			throw new IllegalArgumentException("Formato de DNI inválido.");
+		}
+	}
+
+	@Override
+	public Personal registrarPersonal(PersonalDTO dto) {
+		validarDni(dto.getDni());
+
+		if (personalRepository.existsByDni(dto.getDni())) {
+			throw new IllegalArgumentException("El DNI ya está registrado.");
+		}
+
+		Personal personal = new Personal();
+		personal.setDni(dto.getDni());
+		personal.setNombre(dto.getNombre());
+		personal.setApellidos(dto.getApellidos());
+		personal.setCargo(dto.getCargo());
+
+		if (dto.getCentroId() != null) {
+			personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroId()).orElseThrow(
+					() -> new IllegalArgumentException("Centro educativo no encontrado con ID: " + dto.getCentroId())));
+		}
+
+		return personalRepository.save(personal);
+	}
+
+	@Override
+	public List<Personal> obtenerPersonal() {
+		return personalRepository.findAll();
+	}
+
+	@Override
+	public Personal obtenerPersonalPorId(Long id) {
+		return personalRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("Personal no encontrado con ID: " + id));
+	}
+
+	@Override
+	public Personal editarPersonal(Long id, PersonalDTO dto) {
+		return personalRepository.findById(id).map(personal -> {
+			personal.setNombre(dto.getNombre());
+			personal.setApellidos(dto.getApellidos());
+			personal.setCargo(dto.getCargo());
+
+			if (!personal.getDni().equals(dto.getDni())) {
+				validarDni(dto.getDni());
+
+				if (personalRepository.existsByDniAndIdNot(dto.getDni(), id)) {
+					throw new IllegalArgumentException("El nuevo DNI ya está registrado para otro personal.");
+				}
+				personal.setDni(dto.getDni());
+			}
+
+			if (dto.getCentroId() != null) {
+				personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroId())
+						.orElseThrow(() -> new IllegalArgumentException(
+								"Centro educativo no encontrado con ID: " + dto.getCentroId())));
+			} else {
+				personal.setCentroEducativo(null);
+			}
+
+			return personalRepository.save(personal);
+		}).orElseThrow(() -> new IllegalArgumentException("Personal no encontrado con ID: " + id));
+	}
+
+	@Override
+	public void eliminarPersonal(Long id) {
+		personalRepository.deleteById(id);
+	}
+
+	@Override
+	public List<Personal> obtenerPersonalPorCentro(Long centroId) {
+		return personalRepository.findByCentroEducativoId(centroId);
+	}
+}

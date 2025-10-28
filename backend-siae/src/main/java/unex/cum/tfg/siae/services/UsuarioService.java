@@ -10,16 +10,20 @@ import unex.cum.tfg.siae.model.dto.GestorDTO;
 public interface UsuarioService {
 
 	Usuario registrarGestor(GestorDTO dto);
-	
+
 	Usuario registrarAdministrador(Administrador admin);
-	
+
 	Usuario registrarInvitador(Invitado invitado);
 
 	boolean existeUsuario(Usuario usuario);
-	
+
 	List<Usuario> obtenerUsuarios();
 
 	Usuario editarUsuario(Long id, Usuario usuario);
 
 	void eliminarUsuario(Long id);
+
+	void generatePasswordResetToken(String correo);
+
+	boolean resetPassword(String token, String nuevaPassword);
 }

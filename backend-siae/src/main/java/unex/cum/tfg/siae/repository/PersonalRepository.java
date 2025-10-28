@@ -1,0 +1,22 @@
+package unex.cum.tfg.siae.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import unex.cum.tfg.siae.model.Personal;
+
+@Repository
+public interface PersonalRepository extends JpaRepository<Personal, Long> {
+
+	List<Personal> findByCentroEducativoId(Long centroId);
+
+	Optional<Personal> findByDni(String dni);
+
+	boolean existsByDni(String dni);
+
+	boolean existsByDniAndIdNot(String dni, Long id);
+
+}

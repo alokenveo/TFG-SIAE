@@ -1,5 +1,8 @@
 package unex.cum.tfg.siae.model;
 
+import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.DiscriminatorType;
 import jakarta.persistence.Entity;
@@ -20,6 +23,12 @@ public abstract class Usuario {
     private String nombre;
     private String correo;
     private String password;
+    
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expiry")
+    private LocalDateTime resetTokenExpiry;
     
     public abstract String getRol();
 
@@ -53,6 +62,22 @@ public abstract class Usuario {
 
 	public void setPassword(String password) {
 		this.password = password;
+	}
+
+	public String getResetToken() {
+		return resetToken;
+	}
+
+	public void setResetToken(String resetToken) {
+		this.resetToken = resetToken;
+	}
+
+	public LocalDateTime getResetTokenExpiry() {
+		return resetTokenExpiry;
+	}
+
+	public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) {
+		this.resetTokenExpiry = resetTokenExpiry;
 	}
 }
 

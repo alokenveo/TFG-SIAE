@@ -19,6 +19,7 @@ import unex.cum.tfg.siae.model.Autenticacion;
 import unex.cum.tfg.siae.model.Usuario;
 import unex.cum.tfg.siae.security.CustomUserDetails;
 import unex.cum.tfg.siae.security.JwtTokenProvider;
+import unex.cum.tfg.siae.services.UsuarioService;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:3000")
@@ -31,6 +32,9 @@ public class AuthController {
 	@Autowired
 	private JwtTokenProvider tokenProvider;
 
+	@Autowired
+	private UsuarioService usuarioService;
+
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody Autenticacion authRequest) {
 
@@ -39,15 +43,53 @@ public class AuthController {
 
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 		String token = tokenProvider.generateToken(authentication);
-		
+
 		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        Usuario usuario = userDetails.getUsuario();
+		Usuario usuario = userDetails.getUsuario();
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("token", "Bearer " + token);
 		response.put("usuario", usuario);
 
 		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/request-reset")
+	public ResponseEntity<?> requestPasswordReset(@RequestBody Map<String, String> payload) {
+		String correo = payload.get("correo");
+		if (correo == null || correo.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Correo es requerido"));
+		}
+		try {
+			usuarioService.generatePasswordResetToken(correo);
+			return ResponseEntity.ok(Map.of("message",
+					"Si existe una cuenta asociada a ese correo, se ha generado un enlace de reseteo."));
+		} catch (Exception e) {
+			System.err.println("Error en requestPasswordReset: " + e.getMessage());
+			return ResponseEntity.status(500).body(Map.of("error", "Ocurrió un error procesando la solicitud."));
+		}
+	}
+
+	@PostMapping("/reset-password")
+	public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> payload) {
+		String token = payload.get("token");
+		String nuevaPassword = payload.get("nuevaPassword");
+
+		if (token == null || token.isEmpty() || nuevaPassword == null || nuevaPassword.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Token y nueva contraseña son requeridos"));
+		}
+
+		try {
+			boolean success = usuarioService.resetPassword(token, nuevaPassword);
+			if (success) {
+				return ResponseEntity.ok(Map.of("message", "Contraseña actualizada correctamente."));
+			} else {
+				return ResponseEntity.badRequest().body(Map.of("error", "Token inválido o expirado."));
+			}
+		} catch (Exception e) {
+			System.err.println("Error en resetPassword: " + e.getMessage());
+			return ResponseEntity.status(500).body(Map.of("error", "Ocurrió un error al actualizar la contraseña."));
+		}
 	}
 
 }

@@ -1,16 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authService from '../api/authService';
-import {
-    Container,
-    Box,
-    TextField,
-    Button,
-    Typography,
-    Alert,
-    Paper,
-} from '@mui/material';
+import { Container, Box, TextField, Button, Typography, Alert, Paper, Grid } from '@mui/material';
 
 function Login() {
     const [correo, setCorreo] = useState('');
@@ -24,13 +16,8 @@ function Login() {
         setError('');
 
         try {
-            // 1. Llamar al servicio de la API
             const data = await authService.login(correo, password);
-
-            // 2. Guardar el token y el usuario en nuestro Contexto
             login(data.token, data.usuario);
-
-            // 3. Redirigir al Dashboard
             navigate('/');
         } catch (err) {
             setError('Credenciales inválidas. Por favor, inténtalo de nuevo.');
@@ -83,6 +70,14 @@ function Login() {
                     >
                         Entrar
                     </Button>
+
+                    <Grid container justifyContent="flex-end">
+                        <Grid item>
+                            <Link to="/forgot-password" variant="body2">
+                                ¿Olvidaste tu contraseña?
+                            </Link>
+                        </Grid>
+                    </Grid>
                 </Box>
             </Paper>
         </Container>
