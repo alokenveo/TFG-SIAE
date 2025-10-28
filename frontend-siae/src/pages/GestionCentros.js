@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, Toolbar, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Modal, Fade, Backdrop, IconButton, Tooltip } from '@mui/material';
+import {
+    Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
+    TableContainer, TableHead, TableRow, Paper, CircularProgress,
+    Modal, Fade, Backdrop, IconButton, Tooltip, TextField, Grid,
+    Select, MenuItem, InputLabel, FormControl
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -19,22 +24,31 @@ const style = {
     p: 4,
 };
 
+const tiposFiltro = ["TODOS", "PUBLICO", "PRIVADO", "CONCERTADO"];
+
+const provinciasFiltro = ["TODOS", "ANNOBON", "BIOKO_NORTE", "BIOKO_SUR", "CENTRO_SUR", "DJIBLOHO", "KIE_NTEM", "LITORAL", "WELE_NZAS"];
+
 function GestionCentros() {
-    const [centros, setCentros] = useState([]);
-    const [loading, setLoading] = useState(true); // Estado para saber si estamos cargando datos
-    const [openModal, setOpenModal] = useState(false); // Estado para abrir/cerrar el modal
+    const [centrosOriginales, setCentrosOriginales] = useState([]);
+    const [centrosFiltrados, setCentrosFiltrados] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [openModal, setOpenModal] = useState(false);
     const [centroActual, setCentroActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
 
-    // Función para cargar los datos cuando el componente se monte
+    // --- Estados para los Filtros ---
+    const [filtroTexto, setFiltroTexto] = useState('');
+    const [filtroTipo, setFiltroTipo] = useState('TODOS');
+    const [filtroProvincia, setFiltroProvincia] = useState('TODOS');
+
     const cargarCentros = async () => {
         setLoading(true);
         try {
             const response = await centroService.obtenerTodosLosCentros();
-            setCentros(response.data || []);
+            setCentrosOriginales(response.data || []);
         } catch (error) {
             console.error("Error al cargar los centros:", error);
-            setCentros([]);
+            setCentrosOriginales([]);
         } finally {
             setLoading(false);
         }
@@ -44,7 +58,35 @@ function GestionCentros() {
         cargarCentros();
     }, []);
 
-    // --- MANEJO DEL MODAL ---
+    useEffect(() => {
+        let centrosResultado = centrosOriginales;
+        const textoBusqueda = filtroTexto.toLowerCase().trim();
+
+        if (textoBusqueda) {
+            centrosResultado = centrosResultado.filter(centro =>
+                (centro.nombre && centro.nombre.toLowerCase().includes(textoBusqueda)) ||
+                (centro.tipo && centro.tipo.toLowerCase().includes(textoBusqueda)) ||
+                (centro.provincia && centro.provincia.toLowerCase().includes(textoBusqueda))
+            );
+        }
+
+        if (filtroTipo !== 'TODOS') {
+            centrosResultado = centrosResultado.filter(centro => centro.tipo === filtroTipo);
+        }
+
+        if (filtroProvincia !== 'TODOS') {
+            centrosResultado = centrosResultado.filter(centro => centro.provincia === filtroProvincia);
+        }
+
+        setCentrosFiltrados(centrosResultado);
+
+    }, [filtroTexto, filtroTipo, filtroProvincia, centrosOriginales]);
+
+    // Manejadores para los filtros
+    const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
+    const handleFiltroTipoChange = (event) => setFiltroTipo(event.target.value);
+    const handleFiltroProvinciaChange = (event) => setFiltroProvincia(event.target.value);
+
     const handleOpenCreate = () => {
         setIsEditMode(false);
         setCentroActual({});
@@ -78,11 +120,10 @@ function GestionCentros() {
     };
 
     const handleDelete = async (id) => {
-        // Pedimos confirmación antes de borrar
         if (window.confirm('¿Estás seguro de que deseas eliminar este centro?')) {
             try {
                 await centroService.eliminarCentro(id);
-                cargarCentros(); // Recargamos la lista
+                cargarCentros();
             } catch (error) {
                 console.error("Error al eliminar el centro:", error);
             }
@@ -99,7 +140,54 @@ function GestionCentros() {
                 </Button>
             </Box>
 
-            {/* Mostramos un spinner de carga mientras se obtienen los datos */}
+            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
+                {/* Filtro Texto */}
+                <Grid item xs={12} sm={6} md={4}>
+                    <TextField
+                        fullWidth
+                        label="Buscar..."
+                        variant="outlined"
+                        size="small"
+                        value={filtroTexto}
+                        onChange={handleFiltroTextoChange}
+                    />
+                </Grid>
+                {/* Filtro Tipo */}
+                <Grid item xs={6} sm={3} md={4}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="filtro-tipo-label">Tipo</InputLabel>
+                        <Select
+                            labelId="filtro-tipo-label"
+                            value={filtroTipo}
+                            label="Tipo"
+                            onChange={handleFiltroTipoChange}
+                        >
+                            {tiposFiltro.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </Grid>
+                {/* Filtro Provincia */}
+                <Grid item xs={6} sm={3} md={4}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="filtro-provincia-label">Provincia</InputLabel>
+                        <Select
+                            labelId="filtro-provincia-label"
+                            value={filtroProvincia}
+                            label="Provincia"
+                            onChange={handleFiltroProvinciaChange}
+                        >
+                            {provinciasFiltro.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </Grid>
+                {/* Opcional: Botón para limpiar filtros */}
+                {/* <Grid item xs={12} sm={12} md={3}>
+                     <Button onClick={() => { setFiltroTexto(''); setFiltroTipo('TODOS'); setFiltroProvincia('TODOS'); }}>
+                         Limpiar Filtros
+                     </Button>
+                 </Grid> */}
+            </Grid>
+
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                     <CircularProgress />
@@ -116,7 +204,14 @@ function GestionCentros() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {centros.map((centro) => (
+                            {centrosFiltrados.length === 0 && !loading && (
+                                <TableRow>
+                                    <TableCell colSpan={4} align="center">
+                                        {filtroTexto || filtroTipo !== 'TODOS' || filtroProvincia !== 'TODOS' ? "No se encontraron centros con esos criterios." : "No hay centros registrados."}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {centrosFiltrados.map((centro) => (
                                 <TableRow key={centro.id}>
                                     <TableCell>{centro.nombre}</TableCell>
                                     <TableCell>{centro.tipo}</TableCell>
@@ -140,7 +235,6 @@ function GestionCentros() {
                 </TableContainer>
             )}
 
-            {/* --- MODAL PARA AÑADIR CENTRO --- */}
             <Modal
                 open={openModal}
                 onClose={handleClose}

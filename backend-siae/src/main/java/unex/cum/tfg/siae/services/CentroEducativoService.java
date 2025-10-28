@@ -13,4 +13,6 @@ public interface CentroEducativoService {
 	CentroEducativo editarCentroEducativo(Long id, CentroEducativo centro);
 
 	void eliminarCentroEducativo(Long id);
+
+	List<CentroEducativo> obtenerCentrosPorProvincia(String provincia);
 }

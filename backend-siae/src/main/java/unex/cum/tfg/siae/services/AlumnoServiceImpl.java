@@ -21,7 +21,17 @@ public class AlumnoServiceImpl implements AlumnoService {
 
 	@Override
 	public Alumno registarAlumno(Alumno alumno) {
+		if (!isValidDniFormat(alumno.getDni())) {
+	         throw new IllegalArgumentException("Formato de DNI inválido.");
+	     }
+	     if (alumnoRepository.existsByDni(alumno.getDni())) {
+	          throw new IllegalArgumentException("El DNI ya está registrado.");
+	     }
 		return alumnoRepository.save(alumno);
+	}
+	
+	private boolean isValidDniFormat(String dni) {
+	    return dni != null && dni.matches("^[0-9]{8}[A-Za-z]$");
 	}
 
 	@Override
@@ -36,6 +46,15 @@ public class AlumnoServiceImpl implements AlumnoService {
 			alumno.setApellidos(alumnoDetails.getApellidos());
 			alumno.setFechaNacimiento(alumnoDetails.getFechaNacimiento());
 			alumno.setSexo(alumnoDetails.getSexo());
+			if (!alumno.getDni().equals(alumnoDetails.getDni())) {
+	             if (!isValidDniFormat(alumnoDetails.getDni())) {
+	                 throw new IllegalArgumentException("Formato de DNI inválido.");
+	             }
+	              if (alumnoRepository.existsByDniAndIdNot(alumnoDetails.getDni(), id)) {
+	                  throw new IllegalArgumentException("El nuevo DNI ya está registrado para otro alumno.");
+	              }
+	             alumno.setDni(alumnoDetails.getDni());
+	         }
 			return alumnoRepository.save(alumno);
 		}).orElse(null);
 	}
@@ -71,6 +90,12 @@ public class AlumnoServiceImpl implements AlumnoService {
 				}
 			}
 		}
+		return new AlumnoDetalleDTO(alumno);
+	}
+
+	@Override
+	public AlumnoDetalleDTO obtenerAlumnoPorDni(String dni) {
+		Alumno alumno = alumnoRepository.findByDni(dni).orElse(null);
 		return new AlumnoDetalleDTO(alumno);
 	}
 

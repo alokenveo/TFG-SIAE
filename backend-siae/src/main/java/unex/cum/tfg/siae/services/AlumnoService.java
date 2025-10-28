@@ -21,4 +21,6 @@ public interface AlumnoService {
 	List<Alumno> obtenerAlumnosSinCentro();
 	
 	AlumnoDetalleDTO obtenerAlumnoPorId(Long id);
+
+	AlumnoDetalleDTO obtenerAlumnoPorDni(String dni);
 }

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
-    Modal, Fade, Backdrop, IconButton, Tooltip, Chip
+    Modal, Fade, IconButton, Tooltip, Chip, TextField, Grid,
+    Select, MenuItem, InputLabel, FormControl
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -15,21 +16,28 @@ const style = {
     width: 400, bgcolor: 'background.paper', border: '2px solid #000', boxShadow: 24, p: 4,
 };
 
+const rolesFiltro = ["TODOS", "ADMIN", "GESTOR", "INVITADO"];
+
 function GestionUsuarios() {
-    const [usuarios, setUsuarios] = useState([]);
+    const [usuariosOriginales, setUsuariosOriginales] = useState([]);
+    const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [usuarioActual, setUsuarioActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
 
+    // --- Estados para los Filtros ---
+    const [filtroTexto, setFiltroTexto] = useState('');
+    const [filtroRol, setFiltroRol] = useState('TODOS');
+
     const cargarUsuarios = async () => {
         setLoading(true);
         try {
             const response = await usuarioService.obtenerTodosLosUsuarios();
-            setUsuarios(response.data || []);
+            setUsuariosOriginales(response.data || []);
         } catch (error) {
             console.error("Error al cargar los usuarios:", error);
-            setUsuarios([]);
+            setUsuariosOriginales([]);
         } finally {
             setLoading(false);
         }
@@ -39,6 +47,30 @@ function GestionUsuarios() {
         cargarUsuarios();
     }, []);
 
+    useEffect(() => {
+        let usuariosResultado = usuariosOriginales;
+        const textoBusqueda = filtroTexto.toLowerCase().trim();
+
+        if (textoBusqueda) {
+            usuariosResultado = usuariosResultado.filter(usuario =>
+                (usuario.nombre && usuario.nombre.toLowerCase().includes(textoBusqueda)) ||
+                (usuario.correo && usuario.correo.toLowerCase().includes(textoBusqueda)) ||
+                (usuario.centro?.nombre && usuario.centro.nombre.toLowerCase().includes(textoBusqueda))
+            );
+        }
+
+        if (filtroRol !== 'TODOS') {
+            usuariosResultado = usuariosResultado.filter(usuario => (usuario.rol ? usuario.rol.toUpperCase() : '') === filtroRol);
+        }
+
+        setUsuariosFiltrados(usuariosResultado);
+
+    }, [filtroTexto, filtroRol, usuariosOriginales]);
+
+    // Manejadores para los filtros
+    const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
+    const handleFiltroRolChange = (event) => setFiltroRol(event.target.value);
+
     const handleOpenCreate = () => {
         setIsEditMode(false);
         setUsuarioActual({});
@@ -47,8 +79,8 @@ function GestionUsuarios() {
 
     const handleOpenEdit = (usuario) => {
         setIsEditMode(true);
-        // La propiedad 'rol' la extraemos del campo 'dtype' que nos da el backend
-        const userWithRole = { ...usuario, rol: usuario.dtype.toUpperCase() };
+        // La propiedad 'rol' la extraemos del campo 'rol' que nos da el backend
+        const userWithRole = { ...usuario, rol: usuario.rol ? usuario.rol.toUpperCase() : '' };
         setUsuarioActual(userWithRole);
         setOpenModal(true);
     };
@@ -84,13 +116,26 @@ function GestionUsuarios() {
         }
     };
 
+    const getRoleLabel = (role) => {
+        switch (role) {
+            case 'ADMIN':
+                return 'Administrador';
+            case 'GESTOR':
+                return 'Gestor Institucional';
+            case 'INVITADO':
+                return 'Invitado';
+            default:
+                return role;
+        }
+    };
+
     const getRoleColor = (role) => {
         switch (role) {
-            case 'Administrador':
+            case 'ADMIN':
                 return 'primary'; // Azul/Violeta
-            case 'GestorInstitucional':
+            case 'GESTOR':
                 return 'success'; // Verde
-            case 'Invitado':
+            case 'INVITADO':
                 return 'warning'; // Naranja
             default:
                 return 'default'; // Gris
@@ -104,6 +149,40 @@ function GestionUsuarios() {
                 <Typography variant="h4">Gestión de Usuarios</Typography>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>Añadir Usuario</Button>
             </Box>
+
+            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
+                {/* Filtro Texto */}
+                <Grid item xs={12} sm={6} md={6}>
+                    <TextField
+                        fullWidth
+                        label="Buscar..."
+                        variant="outlined"
+                        size="small"
+                        value={filtroTexto}
+                        onChange={handleFiltroTextoChange}
+                    />
+                </Grid>
+                {/* Filtro Rol */}
+                <Grid item xs={12} sm={6} md={6}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="filtro-rol-label">Rol</InputLabel>
+                        <Select
+                            labelId="filtro-rol-label"
+                            value={filtroRol}
+                            label="Rol"
+                            onChange={handleFiltroRolChange}
+                        >
+                            {rolesFiltro.map(r => <MenuItem key={r} value={r}>{r === 'TODOS' ? 'TODOS' : getRoleLabel(r)}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </Grid>
+                {/* Opcional: Botón para limpiar filtros */}
+                {/* <Grid item xs={12} sm={12} md={3}>
+                     <Button onClick={() => { setFiltroTexto(''); setFiltroRol('TODOS'); }}>
+                         Limpiar Filtros
+                     </Button>
+                 </Grid> */}
+            </Grid>
 
             {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)
                 : (
@@ -119,12 +198,19 @@ function GestionUsuarios() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {usuarios.map((usuario) => (
+                                {usuariosFiltrados.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={5} align="center">
+                                            {filtroTexto || filtroRol !== 'TODOS' ? "No se encontraron usuarios con esos criterios." : "No hay usuarios registrados."}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {usuariosFiltrados.map((usuario) => (
                                     <TableRow key={usuario.id}>
                                         <TableCell>{usuario.nombre}</TableCell>
                                         <TableCell>{usuario.correo}</TableCell>
                                         <TableCell>
-                                            <Chip label={usuario.dtype} color={getRoleColor(usuario.dtype)} />
+                                            <Chip label={getRoleLabel(usuario.rol)} color={getRoleColor(usuario.rol)} />
                                         </TableCell>
                                         <TableCell>{usuario.centro?.nombre || 'N/A'}</TableCell>
                                         <TableCell>

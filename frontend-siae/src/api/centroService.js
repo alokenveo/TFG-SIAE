@@ -18,11 +18,16 @@ const eliminarCentro = (id) => {
     return apiClient.delete(`${API_URL_CENTROS}/eliminar/${id}`);
 };
 
+const obtenerCentrosPorProvincia = (provincia) => {
+    return apiClient.get(`${API_URL_CENTROS}/provincia/${provincia}`);
+};
+
 const centroService = {
     obtenerTodosLosCentros,
     crearCentro,
     editarCentro,
     eliminarCentro,
+    obtenerCentrosPorProvincia,
 };
 
 export default centroService;

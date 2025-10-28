@@ -95,5 +95,17 @@ public class AlumnoController {
 		AlumnoDetalleDTO alumno = alumnoService.obtenerAlumnoPorId(id);
 		return ResponseEntity.ok(alumno);
 	}
+	
+	@GetMapping("/dni/{dni}")
+	public ResponseEntity<AlumnoDetalleDTO> obtenerAlumnoPorDni(@PathVariable String dni) {
+		AlumnoDetalleDTO alumno = alumnoService.obtenerAlumnoPorDni(dni);
+
+	    if (alumno == null) {
+	        return ResponseEntity.notFound().build();
+	    }
+
+	    return ResponseEntity.ok(alumno);
+	}
+
 
 }

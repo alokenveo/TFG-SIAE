@@ -1,6 +1,7 @@
 package unex.cum.tfg.siae.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,5 +17,11 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
 	
 	@Query("SELECT a FROM Alumno a WHERE a.matriculas IS EMPTY")
     List<Alumno> findAlumnosSinCentro();
+	
+	boolean existsByDni(String dni);
+
+	boolean existsByDniAndIdNot(String dni, Long id);
+
+	Optional<Alumno> findByDni(String dni);
 
 }

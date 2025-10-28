@@ -31,6 +31,10 @@ const obtenerAlumnoPorId = (id) => {
     return apiClient.get(`${API_URL_ALUMNOS}/${id}`);
 };
 
+const obtenerAlumnoPorDNI = (dni) => {
+    return apiClient.get(`${API_URL_ALUMNOS}/dni/${dni}`);
+};
+
 const alumnoService = {
     obtenerTodosLosAlumnos,
     obtenerAlumnosSinCentro,
@@ -38,6 +42,7 @@ const alumnoService = {
     editarAlumno,
     eliminarAlumno,
     obtenerAlumnoPorId,
+    obtenerAlumnoPorDNI,
 };
 
 export default alumnoService;

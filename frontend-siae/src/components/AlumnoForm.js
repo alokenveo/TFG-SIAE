@@ -32,6 +32,16 @@ function AlumnoForm({ alumno, setAlumno }) {
             <TextField
                 fullWidth
                 margin="normal"
+                label="DNI"
+                name="dni"
+                value={alumno.dni || ''}
+                onChange={handleChange}
+                required
+                inputProps={{ maxLength: 9 }}
+            />
+            <TextField
+                fullWidth
+                margin="normal"
                 label="Fecha de Nacimiento"
                 name="fechaNacimiento"
                 type="date"

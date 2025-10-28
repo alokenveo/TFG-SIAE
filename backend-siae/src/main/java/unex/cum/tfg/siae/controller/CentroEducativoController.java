@@ -76,4 +76,14 @@ public class CentroEducativoController {
 		return ResponseEntity.noContent().build();
 	}
 
+	@GetMapping("/provincia/{provincia}")
+	public ResponseEntity<List<CentroEducativo>> obtenerCentrosPorProvincia(@PathVariable String provincia) {
+		List<CentroEducativo> centros = centroEducativoService.obtenerCentrosPorProvincia(provincia);
+		if (centros == null || centros.isEmpty()) {
+			return ResponseEntity.noContent().build();
+		}
+
+		return ResponseEntity.ok(centros);
+	}
+
 }

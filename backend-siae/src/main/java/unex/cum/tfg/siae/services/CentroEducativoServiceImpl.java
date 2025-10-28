@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import unex.cum.tfg.siae.model.CentroEducativo;
+import unex.cum.tfg.siae.model.Provincia;
 import unex.cum.tfg.siae.repository.CentroEducativoRepository;
 
 @Service
@@ -40,6 +41,12 @@ public class CentroEducativoServiceImpl implements CentroEducativoService {
 	@Override
 	public void eliminarCentroEducativo(Long id) {
 		centroEducativoRepository.deleteById(id);
+	}
+
+	@Override
+	public List<CentroEducativo> obtenerCentrosPorProvincia(String provincia) {
+		Provincia provinciaEnum = Provincia.valueOf(provincia.toUpperCase());
+		return centroEducativoRepository.findByProvincia(provinciaEnum);
 	}
 
 }
