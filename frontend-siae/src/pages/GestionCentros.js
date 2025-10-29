@@ -35,6 +35,7 @@ function GestionCentros() {
     const [openModal, setOpenModal] = useState(false);
     const [centroActual, setCentroActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
+    const [nivelesSeleccionadosForm, setNivelesSeleccionadosForm] = useState([]);
 
     // --- Estados para los Filtros ---
     const [filtroTexto, setFiltroTexto] = useState('');
@@ -87,15 +88,25 @@ function GestionCentros() {
     const handleFiltroTipoChange = (event) => setFiltroTipo(event.target.value);
     const handleFiltroProvinciaChange = (event) => setFiltroProvincia(event.target.value);
 
-    const handleOpenCreate = () => {
-        setIsEditMode(false);
-        setCentroActual({});
+    const handleOpenEdit = async (centro) => {
+        setIsEditMode(true);
+        setCentroActual(centro);
+        setNivelesSeleccionadosForm([]);
+
+        try {
+            const response = await centroService.obtenerNivelesPorCentro(centro.id);
+            setNivelesSeleccionadosForm(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error(`Error cargando niveles para el centro ${centro.id}:`, error);
+            alert("Error al cargar los niveles asociados a este centro.");
+        }
         setOpenModal(true);
     };
 
-    const handleOpenEdit = (centro) => {
-        setIsEditMode(true);
-        setCentroActual(centro);
+    const handleOpenCreate = () => {
+        setIsEditMode(false);
+        setCentroActual({});
+        setNivelesSeleccionadosForm([]);
         setOpenModal(true);
     };
 
@@ -103,20 +114,6 @@ function GestionCentros() {
         setOpenModal(false);
         setCentroActual({});
         setIsEditMode(false);
-    };
-
-    const handleSave = async () => {
-        try {
-            if (isEditMode) {
-                await centroService.editarCentro(centroActual.id, centroActual);
-            } else {
-                await centroService.crearCentro(centroActual);
-            }
-            handleClose();
-            cargarCentros();
-        } catch (error) {
-            console.error("Error al guardar el centro:", error);
-        }
     };
 
     const handleDelete = async (id) => {
@@ -127,6 +124,35 @@ function GestionCentros() {
             } catch (error) {
                 console.error("Error al eliminar el centro:", error);
             }
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            let centroGuardado;
+            if (isEditMode) {
+                const response = await centroService.editarCentro(centroActual.id, centroActual);
+                centroGuardado = response.data;
+            } else {
+                const response = await centroService.crearCentro(centroActual);
+                centroGuardado = response.data;
+            }
+
+            if (centroGuardado && centroGuardado.id) {
+                const nivelIds = nivelesSeleccionadosForm.map(nivel => nivel.id);
+                try {
+                    await centroService.actualizarNivelesCentro(centroGuardado.id, nivelIds);
+                } catch (nivelError) {
+                    console.error("Error al actualizar niveles del centro:", nivelError);
+                    alert(`Centro guardado (${centroGuardado.nombre}), pero hubo un error al actualizar los niveles educativos asociados.`);
+                    return;
+                }
+            }
+            cargarCentros();
+            handleClose();
+        } catch (error) {
+            console.error("Error al guardar centro:", error);
+            alert(`Error al guardar centro: ${error.response?.data?.error || error.message}`);
         }
     };
 
@@ -180,12 +206,6 @@ function GestionCentros() {
                         </Select>
                     </FormControl>
                 </Grid>
-                {/* Opcional: Botón para limpiar filtros */}
-                {/* <Grid item xs={12} sm={12} md={3}>
-                     <Button onClick={() => { setFiltroTexto(''); setFiltroTipo('TODOS'); setFiltroProvincia('TODOS'); }}>
-                         Limpiar Filtros
-                     </Button>
-                 </Grid> */}
             </Grid>
 
             {loading ? (
@@ -247,7 +267,8 @@ function GestionCentros() {
                         <Typography variant="h6" component="h2">
                             {isEditMode ? 'Editar Centro' : 'Añadir Nuevo Centro'}
                         </Typography>
-                        <CentroForm centro={centroActual} setCentro={setCentroActual} />
+                        <CentroForm centro={centroActual} setCentro={setCentroActual} nivelesSeleccionados={nivelesSeleccionadosForm}
+                            setNivelesSeleccionados={setNivelesSeleccionadosForm} />
                         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                             <Button onClick={handleClose}>Cancelar</Button>
                             <Button onClick={handleSave} variant="contained" sx={{ ml: 1 }}>Guardar</Button>

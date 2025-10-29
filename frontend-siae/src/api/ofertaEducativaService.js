@@ -18,11 +18,16 @@ const obtenerAsignaturasPorCurso = (cursoId) => {
     return apiClient.get(`${API_URL_OFERTA}/asignaturas/por-curso/${cursoId}`);
 };
 
+const obtenerNivelesPorCentro = (centroId) => {
+    return apiClient.get(`${API_URL_OFERTA}/niveles`, { params: { centroId } });
+};
+
 const ofertaEducativaService = {
     obtenerNiveles,
     obtenerCursosPorNivel,
     obtenerAsignaturasPorCurso,
-    obtenerCursos
+    obtenerCursos,
+    obtenerNivelesPorCentro
 };
 
 export default ofertaEducativaService;
