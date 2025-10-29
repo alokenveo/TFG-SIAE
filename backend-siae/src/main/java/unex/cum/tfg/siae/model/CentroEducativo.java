@@ -33,7 +33,7 @@ public class CentroEducativo {
 
 	@ManyToMany
 	@JoinTable(name = "centro_nivel", joinColumns = @JoinColumn(name = "centro_id"), inverseJoinColumns = @JoinColumn(name = "nivel_id"))
-	@JsonIgnore
+	//@JsonIgnore
 	private List<NivelEducativo> niveles;
 
 	@OneToMany(mappedBy = "centroEducativo")

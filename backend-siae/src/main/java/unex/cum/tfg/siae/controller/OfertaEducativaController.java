@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.Asignatura;
@@ -30,8 +31,13 @@ public class OfertaEducativaController {
 	private AsignaturaService asignaturaService;
 
 	@GetMapping("/niveles")
-	public ResponseEntity<List<NivelEducativo>> obtenerNiveles() {
-		List<NivelEducativo> nivelesEducativos = nivelEducativoService.obtenerNiveles();
+	public ResponseEntity<List<NivelEducativo>> obtenerNiveles(@RequestParam(required = false) Long centroId) {
+		List<NivelEducativo> nivelesEducativos;
+		if (centroId != null) {
+			nivelesEducativos = nivelEducativoService.obtenerNivelesPorCentro(centroId);
+		} else {
+			nivelesEducativos = nivelEducativoService.obtenerNiveles();
+		}
 		return ResponseEntity.ok(nivelesEducativos);
 	}
 
@@ -44,7 +50,7 @@ public class OfertaEducativaController {
 	@GetMapping("/cursos/por-nivel/{nivelId}")
 	public ResponseEntity<List<Curso>> obtenerCursosPorNivel(@PathVariable Long nivelId) {
 		List<Curso> cursos = cursoService.obtenerCursosPorNivel(nivelId);
-        return ResponseEntity.ok(cursos);
+		return ResponseEntity.ok(cursos);
 	}
 
 	@GetMapping("/asignaturas")
@@ -56,6 +62,6 @@ public class OfertaEducativaController {
 	@GetMapping("/asignaturas/por-curso/{cursoId}")
 	public ResponseEntity<List<Asignatura>> obtenerAsignaturasPorCurso(@PathVariable Long cursoId) {
 		List<Asignatura> asignaturas = asignaturaService.obtenerAsignaturasPorCurso(cursoId);
-        return ResponseEntity.ok(asignaturas);
+		return ResponseEntity.ok(asignaturas);
 	}
 }

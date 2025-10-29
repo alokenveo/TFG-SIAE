@@ -15,4 +15,8 @@ public interface CentroEducativoService {
 	void eliminarCentroEducativo(Long id);
 
 	List<CentroEducativo> obtenerCentrosPorProvincia(String provincia);
+
+	CentroEducativo obtenerCentroPorId(Long id);
+
+	void actualizarNivelesCentro(Long centroId, List<Long> nivelIds);
 }
