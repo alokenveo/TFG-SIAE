@@ -41,9 +41,9 @@ public class PersonalServiceImpl implements PersonalService {
 		personal.setApellidos(dto.getApellidos());
 		personal.setCargo(dto.getCargo());
 
-		if (dto.getCentroId() != null) {
-			personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroId()).orElseThrow(
-					() -> new IllegalArgumentException("Centro educativo no encontrado con ID: " + dto.getCentroId())));
+		if (dto.getCentroEducativoId() != null) {
+			personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroEducativoId()).orElseThrow(
+					() -> new IllegalArgumentException("Centro educativo no encontrado con ID: " + dto.getCentroEducativoId())));
 		}
 
 		return personalRepository.save(personal);
@@ -76,10 +76,10 @@ public class PersonalServiceImpl implements PersonalService {
 				personal.setDni(dto.getDni());
 			}
 
-			if (dto.getCentroId() != null) {
-				personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroId())
+			if (dto.getCentroEducativoId() != null) {
+				personal.setCentroEducativo(centroEducativoRepository.findById(dto.getCentroEducativoId())
 						.orElseThrow(() -> new IllegalArgumentException(
-								"Centro educativo no encontrado con ID: " + dto.getCentroId())));
+								"Centro educativo no encontrado con ID: " + dto.getCentroEducativoId())));
 			} else {
 				personal.setCentroEducativo(null);
 			}

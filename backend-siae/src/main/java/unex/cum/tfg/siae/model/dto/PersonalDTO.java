@@ -6,7 +6,7 @@ public class PersonalDTO {
 	private String nombre;
 	private String apellidos;
 	private String cargo;
-	private Long centroId;
+	private Long centroEducativoId;
 
 	public String getDni() {
 		return dni;
@@ -40,11 +40,11 @@ public class PersonalDTO {
 		this.cargo = cargo;
 	}
 
-	public Long getCentroId() {
-		return centroId;
+	public Long getCentroEducativoId() {
+		return centroEducativoId;
 	}
 
-	public void setCentroId(Long centroId) {
-		this.centroId = centroId;
+	public void setCentroEducativoId(Long centroId) {
+		this.centroEducativoId = centroId;
 	}
 }
