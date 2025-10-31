@@ -6,6 +6,7 @@ public class NotaDTO {
 	private Long asignaturaId;
 	private Long cursoId;
 	private int anioAcademico;
+	private String evaluacion;
 	private Double calificacion;
 
 	public Long getAlumnoId() {
@@ -38,6 +39,14 @@ public class NotaDTO {
 
 	public void setAnioAcademico(int anioAcademico) {
 		this.anioAcademico = anioAcademico;
+	}
+
+	public String getEvaluacion() {
+		return evaluacion;
+	}
+
+	public void setEvaluacion(String evaluacion) {
+		this.evaluacion = evaluacion;
 	}
 
 	public Double getCalificacion() {

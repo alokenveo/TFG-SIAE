@@ -61,8 +61,9 @@ public class NotaServiceImpl implements NotaService {
 	@Override
 	@Transactional
 	public Nota registrarNota(NotaDTO dto) {
-		Optional<Nota> notaExistenteOpt = notaRepo.findByAlumnoIdAndCursoIdAndAsignaturaIdAndAnioAcademico(
-				dto.getAlumnoId(), dto.getCursoId(), dto.getAsignaturaId(), dto.getAnioAcademico());
+		Optional<Nota> notaExistenteOpt = notaRepo.findByAlumnoIdAndCursoIdAndAsignaturaIdAndAnioAcademicoAndEvaluacion(
+				dto.getAlumnoId(), dto.getCursoId(), dto.getAsignaturaId(), dto.getAnioAcademico(),
+				dto.getEvaluacion());
 
 		Nota notaAGuardar;
 
@@ -83,6 +84,7 @@ public class NotaServiceImpl implements NotaService {
 			notaAGuardar.setCurso(curso);
 			notaAGuardar.setAnioAcademico(dto.getAnioAcademico());
 			notaAGuardar.setCalificacion(dto.getCalificacion());
+			notaAGuardar.setEvaluacion(dto.getEvaluacion());
 		}
 
 		return notaRepo.save(notaAGuardar);

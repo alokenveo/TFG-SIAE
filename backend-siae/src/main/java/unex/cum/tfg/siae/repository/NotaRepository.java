@@ -34,4 +34,7 @@ public interface NotaRepository extends JpaRepository<Nota, Long> {
 
 	@Query("SELECT AVG(n.calificacion) FROM Nota n WHERE n.alumno.id = :alumnoId AND n.curso.id = :cursoId")
 	Double obtenerPromedioPorAlumnoYCurso(@Param("alumnoId") Long alumnoId, @Param("cursoId") Long cursoId);
+
+	Optional<Nota> findByAlumnoIdAndCursoIdAndAsignaturaIdAndAnioAcademicoAndEvaluacion(Long alumnoId, Long cursoId,
+			Long asignaturaId, int anioAcademico, String evaluacion);
 }

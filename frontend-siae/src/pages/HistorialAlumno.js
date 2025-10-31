@@ -23,6 +23,8 @@ const style = {
     p: 4,
 };
 
+const evaluacionesFiltro = ["TODAS", "1ª Evaluación", "2ª Evaluación", "3ª Evaluación"];
+
 function HistorialAlumno() {
     const { alumnoId } = useParams();
     const navigate = useNavigate();
@@ -33,6 +35,7 @@ function HistorialAlumno() {
     const [availableYears, setAvailableYears] = useState([]);
     const [openModal, setOpenModal] = useState(false);
     const [nuevaNota, setNuevaNota] = useState({});
+    const [selectedEvaluacion, setSelectedEvaluacion] = useState('1ª Evaluación');
 
     const cargarDatos = useCallback(async () => {
         setLoading(true);
@@ -86,6 +89,7 @@ function HistorialAlumno() {
             anioAcademico: selectedYear || (availableYears.length > 0 ? availableYears[0] : new Date().getFullYear()),
             cursoId: '',
             asignaturaId: '',
+            evaluacion: '1ª Evaluación',
             calificacion: null,
         });
         setOpenModal(true);
@@ -98,7 +102,7 @@ function HistorialAlumno() {
 
     const handleSave = async () => {
         try {
-            if (!nuevaNota.cursoId || !nuevaNota.asignaturaId || nuevaNota.calificacion === null) {
+            if (!nuevaNota.cursoId || !nuevaNota.asignaturaId || !nuevaNota.evaluacion || nuevaNota.calificacion === null) {
                 alert("Por favor, completa todos los campos requeridos.");
                 return;
             }
@@ -118,7 +122,15 @@ function HistorialAlumno() {
     };
 
     // Filtrar notas según el año seleccionado
-    const filteredNotas = selectedYear === '' ? notas : notas.filter(n => n.anioAcademico === selectedYear);
+    const filteredNotas = notas.filter(n => {
+        const yearMatch = selectedYear === '' || n.anioAcademico === selectedYear;
+        const evalMatch = selectedEvaluacion === 'TODAS' || n.evaluacion === selectedEvaluacion;
+        return yearMatch && evalMatch;
+    });
+
+    const handleEvaluacionChange = (event) => {
+        setSelectedEvaluacion(event.target.value);
+    };
 
     const handleYearChange = (event) => {
         setSelectedYear(event.target.value);
@@ -188,6 +200,21 @@ function HistorialAlumno() {
                         ))}
                     </Select>
                 </FormControl>
+
+                <FormControl sx={{ minWidth: 150 }}>
+                    <InputLabel id="eval-select-label">Evaluación</InputLabel>
+                    <Select
+                        labelId="eval-select-label"
+                        value={selectedEvaluacion}
+                        label="Evaluación"
+                        onChange={handleEvaluacionChange}
+                    >
+                        {evaluacionesFiltro.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
+                    </Select>
+                </FormControl>
+
+                <Box sx={{ flexGrow: 1 }} />
+
                 <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpen}>
                     Registrar Nota
                 </Button>
@@ -200,6 +227,7 @@ function HistorialAlumno() {
                         <TableRow>
                             <TableCell>Curso</TableCell>
                             <TableCell>Asignatura</TableCell>
+                            <TableCell>Evaluación</TableCell>
                             <TableCell>Calificación</TableCell>
                         </TableRow>
                     </TableHead>
@@ -213,6 +241,7 @@ function HistorialAlumno() {
                                 <TableRow key={nota.id}>
                                     <TableCell>{nota.curso.nombre}</TableCell>
                                     <TableCell>{nota.asignatura.nombre}</TableCell>
+                                    <TableCell>{nota.evaluacion}</TableCell>
                                     <TableCell>{nota.calificacion}</TableCell>
                                 </TableRow>
                             ))

@@ -17,7 +17,7 @@ public class Nota {
 
 	private Double calificacion;
 
-	// Opcionalmente: trimestre, tipo de evaluación, comentarios, etc.
+	private String evaluacion;
 
 	@ManyToOne
 	private Alumno alumno;
@@ -74,6 +74,14 @@ public class Nota {
 
 	public void setCurso(Curso curso) {
 		this.curso = curso;
+	}
+
+	public String getEvaluacion() {
+		return evaluacion;
+	}
+
+	public void setEvaluacion(String evaluacion) {
+		this.evaluacion = evaluacion;
 	}
 
 	@Override
