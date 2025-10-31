@@ -23,6 +23,7 @@ function ResetPassword() {
             setError('Token no encontrado o inválido en la URL.');
             navigate('/login');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     const handleSubmit = async (e) => {

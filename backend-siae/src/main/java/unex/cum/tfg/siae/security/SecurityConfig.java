@@ -85,6 +85,7 @@ public class SecurityConfig {
 
 						// Endpoints Autenticados (consulta)
 						.requestMatchers("/api/oferta-educativa/**").authenticated()
+						.requestMatchers("/api/dashboard/**").authenticated()
 
 						// Cualquier otra petición requiere autenticación
 						.anyRequest().authenticated())

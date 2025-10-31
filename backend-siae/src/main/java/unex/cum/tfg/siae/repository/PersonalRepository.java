@@ -18,5 +18,7 @@ public interface PersonalRepository extends JpaRepository<Personal, Long> {
 	boolean existsByDni(String dni);
 
 	boolean existsByDniAndIdNot(String dni, Long id);
+	
+	Long countByCentroEducativoId(Long centroId);
 
 }
