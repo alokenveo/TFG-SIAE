@@ -23,7 +23,7 @@ const obtenerCentrosPorProvincia = (provincia) => {
 };
 
 const actualizarNivelesCentro = (centroId, nivelIds) => {
-    return apiClient.put(`${API_URL_CENTROS}/${centroId}/niveles`, { niveles: nivelIds });
+    return apiClient.put(`${API_URL_CENTROS}/${centroId}/niveles`, nivelIds);
 };
 
 const centroService = {

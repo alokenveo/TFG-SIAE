@@ -10,6 +10,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import centroService from '../api/centroService';
 import CentroForm from '../components/CentroForm';
+import ofertaEducativaService from '../api/ofertaEducativaService';
 
 // Estilo para el Modal
 const style = {
@@ -94,7 +95,7 @@ function GestionCentros() {
         setNivelesSeleccionadosForm([]);
 
         try {
-            const response = await centroService.obtenerNivelesPorCentro(centro.id);
+            const response = await ofertaEducativaService.obtenerNivelesPorCentro(centro.id);
             setNivelesSeleccionadosForm(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
             console.error(`Error cargando niveles para el centro ${centro.id}:`, error);
