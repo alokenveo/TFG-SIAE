@@ -3,8 +3,19 @@ import apiClient from './axiosConfig';
 const API_URL_ALUMNOS = '/alumnos';
 
 // Función para obtener todos los alumnos
-const obtenerTodosLosAlumnos = () => {
-    return apiClient.get(`${API_URL_ALUMNOS}/lista`);
+const obtenerTodosLosAlumnos = (page, size, search, sexo, sort = 'apellidos,asc') => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    params.append('sort', sort);
+
+    if (search) {
+        params.append('search', search);
+    }
+    if (sexo && sexo !== 'TODOS') {
+        params.append('sexo', sexo);
+    }
+    return apiClient.get(`${API_URL_ALUMNOS}/lista`, { params });
 };
 
 // Función para obtener todos los alumnos sin centro asignado

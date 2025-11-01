@@ -1,9 +1,17 @@
 package unex.cum.tfg.siae.services;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
 import unex.cum.tfg.siae.model.Alumno;
 import unex.cum.tfg.siae.model.CentroEducativo;
 import unex.cum.tfg.siae.model.Curso;
@@ -57,18 +65,53 @@ public class MatriculaServiceImpl implements MatriculaService {
 	}
 
 	@Override
-	public List<Matricula> obtenerMatriculas() {
-		return matriculaRepository.findAll();
-	}
+	public Page<Matricula> obtenerMatriculas(Pageable pageable, Long centroId, String search, Long cursoId,
+			Integer anioAcademico) {
 
-	@Override
-	public List<Matricula> obtenerMatriculasPorCentro(Long centroId) {
-		return matriculaRepository.findByCentroEducativoId(centroId);
+		Specification<Matricula> spec = (root, query, cb) -> {
+			List<Predicate> predicates = new ArrayList<>();
+
+			if (centroId != null) {
+				predicates.add(cb.equal(root.get("centroEducativo").get("id"), centroId));
+			}
+
+			if (search != null && !search.isEmpty()) {
+				String searchLower = "%" + search.toLowerCase() + "%";
+				Join<Matricula, Alumno> alumnoJoin = root.join("alumno");
+				Join<Matricula, CentroEducativo> centroJoin = root.join("centroEducativo");
+				Predicate nombrePred = cb.like(cb.lower(alumnoJoin.get("nombre")), searchLower);
+				Predicate apellidosPred = cb.like(cb.lower(alumnoJoin.get("apellidos")), searchLower);
+				Predicate centroPred = cb.like(cb.lower(centroJoin.get("nombre")), searchLower);
+				predicates.add(cb.or(nombrePred, apellidosPred, centroPred));
+			}
+
+			if (cursoId != null) {
+				predicates.add(cb.equal(root.get("curso").get("id"), cursoId));
+			}
+
+			if (anioAcademico != null) {
+				predicates.add(cb.equal(root.get("anioAcademico"), anioAcademico));
+			}
+
+			return cb.and(predicates.toArray(new Predicate[0]));
+		};
+
+		if (pageable.getSort().isUnsorted()) {
+			pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+					Sort.by("alumno.apellidos").ascending());
+		}
+
+		return matriculaRepository.findAll(spec, pageable);
 	}
 
 	@Override
 	public List<Matricula> obtenerMatriculasPorAlumno(Long alumnoId) {
 		return matriculaRepository.findByAlumnoIdOrderByAnioAcademicoDesc(alumnoId);
+	}
+
+	@Override
+	public List<Integer> obtenerAnios() {
+		return matriculaRepository.findDistinctAnioAcademico();
 	}
 
 }

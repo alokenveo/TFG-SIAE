@@ -4,7 +4,7 @@ import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
     Modal, Fade, Backdrop, IconButton, Tooltip, TextField, Grid,
-    Select, MenuItem, InputLabel, FormControl
+    Select, MenuItem, InputLabel, FormControl, TablePagination // <-- AÑADIR
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import alumnoService from '../api/alumnoService';
 import AlumnoForm from '../components/AlumnoForm';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import useDebounce from '../hooks/useDebounce';
 
 const style = {
     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -21,118 +22,98 @@ const style = {
 const sexosFiltro = ["TODOS", "MASCULINO", "FEMENINO"];
 
 function GestionAlumnos() {
-    const [alumnosOriginales, setAlumnosOriginales] = useState([]);
-    const [alumnosFiltrados, setAlumnosFiltrados] = useState([]);
+    const [alumnos, setAlumnos] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Estados de Paginación
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [totalElements, setTotalElements] = useState(0);
+
+    // Estados de Filtros
+    const [filtroSearch, setFiltroSearch] = useState("");
+    const [filtroSexo, setFiltroSexo] = useState("TODOS");
+
+    const debouncedSearch = useDebounce(filtroSearch, 500);
+    const debouncedSexo = useDebounce(filtroSexo, 500);
+
     const [openModal, setOpenModal] = useState(false);
     const [alumnoActual, setAlumnoActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
+
     const navigate = useNavigate();
 
-    // --- Estados para los Filtros ---
-    const [filtroTexto, setFiltroTexto] = useState('');
-    const [filtroSexo, setFiltroSexo] = useState('TODOS');
-    const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
-    const [filtroFechaFin, setFiltroFechaFin] = useState('');
+    // --- USEEFFECT MODIFICADO ---
+    useEffect(() => {
+        const fetchAlumnos = async () => {
+            setLoading(true);
+            try {
+                const response = await alumnoService.obtenerTodosLosAlumnos(
+                    page,
+                    rowsPerPage,
+                    debouncedSearch,
+                    debouncedSexo
+                );
 
-    const cargarAlumnos = async () => {
-        setLoading(true);
-        try {
-            const response = await alumnoService.obtenerTodosLosAlumnos();
-            const data = Array.isArray(response.data) ? response.data : [];
-
-            const sortedData = data.sort((a, b) => a.apellidos.localeCompare(b.apellidos));
-
-            setAlumnosOriginales(sortedData);
-        } catch (error) {
-            console.error("Error al cargar los alumnos:", error);
-            setAlumnosOriginales([]);
-        } finally {
+                setAlumnos(response.data.content);
+                setTotalElements(response.data.totalElements);
+            } catch (error) {
+                console.error("Error al cargar alumnos:", error);
+            }
             setLoading(false);
-        }
+        };
+
+        fetchAlumnos();
+    }, [page, rowsPerPage, debouncedSearch, debouncedSexo]);
+
+    // --- MANEJADORES DE PAGINACIÓN ---
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
     };
 
-    useEffect(() => {
-        cargarAlumnos();
-    }, []);
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
 
-    useEffect(() => {
-        let alumnosResultado = alumnosOriginales;
-        const textoBusqueda = filtroTexto.toLowerCase().trim();
-
-        if (textoBusqueda) {
-            alumnosResultado = alumnosResultado.filter(alumno =>
-                (alumno.dni && alumno.dni.toLowerCase().includes(textoBusqueda)) ||
-                (alumno.nombre && alumno.nombre.toLowerCase().includes(textoBusqueda)) ||
-                (alumno.apellidos && alumno.apellidos.toLowerCase().includes(textoBusqueda))
-            );
-        }
-
-        if (filtroSexo !== 'TODOS') {
-            alumnosResultado = alumnosResultado.filter(alumno => alumno.sexo === filtroSexo);
-        }
-
-        if (filtroFechaInicio || filtroFechaFin) {
-            const inicio = filtroFechaInicio ? new Date(filtroFechaInicio) : new Date('1900-01-01');
-            const fin = filtroFechaFin ? new Date(filtroFechaFin) : new Date();
-
-            alumnosResultado = alumnosResultado.filter(alumno => {
-                const fechaNac = new Date(alumno.fechaNacimiento);
-                return fechaNac >= inicio && fechaNac <= fin;
-            });
-        }
-
-        setAlumnosFiltrados(alumnosResultado);
-
-    }, [filtroTexto, filtroSexo, filtroFechaInicio, filtroFechaFin, alumnosOriginales]);
-
-    // Manejadores para los filtros
-    const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
-    const handleFiltroSexoChange = (event) => setFiltroSexo(event.target.value);
-    const handleFiltroFechaInicioChange = (event) => setFiltroFechaInicio(event.target.value);
-    const handleFiltroFechaFinChange = (event) => setFiltroFechaFin(event.target.value);
-
-    const handleOpenCreate = () => {
-        setIsEditMode(false);
+    // --- MANEJADORES DE MODAL (sin cambios) ---
+    const handleOpen = () => {
         setAlumnoActual({});
+        setIsEditMode(false);
         setOpenModal(true);
     };
 
     const handleOpenEdit = (alumno) => {
+        setAlumnoActual(alumno);
         setIsEditMode(true);
-        // Formatear la fecha para el input type="date" (YYYY-MM-DD)
-        const formattedAlumno = { ...alumno, fechaNacimiento: alumno.fechaNacimiento.split('T')[0] };
-        setAlumnoActual(formattedAlumno);
         setOpenModal(true);
     };
 
-    const handleClose = () => {
-        setOpenModal(false);
-        setAlumnoActual({});
-        setIsEditMode(false);
-    };
+    const handleClose = () => setOpenModal(false);
 
     const handleSave = async () => {
+        setLoading(true);
         try {
             if (isEditMode) {
-                await alumnoService.editarAlumno(alumnoActual.id, alumnoActual);
+                await alumnoService.updateAlumno(alumnoActual.id, alumnoActual);
             } else {
-                await alumnoService.crearAlumno(alumnoActual);
+                await alumnoService.createAlumno(alumnoActual);
             }
             handleClose();
-            cargarAlumnos();
+            setPage(0);
         } catch (error) {
-            console.error("Error al guardar el alumno:", error);
+            console.error("Error al guardar alumno:", error);
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de que deseas eliminar este alumno?')) {
+        if (window.confirm('¿Estás seguro de que quieres eliminar este alumno?')) {
+            setLoading(true);
             try {
-                await alumnoService.eliminarAlumno(id);
-                cargarAlumnos();
+                await alumnoService.deleteAlumno(id);
+                setPage(0);
             } catch (error) {
-                console.error("Error al eliminar el alumno:", error);
+                console.error("Error al eliminar alumno:", error);
             }
         }
     };
@@ -146,96 +127,69 @@ function GestionAlumnos() {
             <Toolbar />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h4">Gestión de Alumnos</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpen}>
                     Añadir Alumno
                 </Button>
             </Box>
 
-            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
-                {/* Filtro Texto */}
-                <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                        fullWidth
-                        label="Buscar..."
-                        variant="outlined"
-                        size="small"
-                        value={filtroTexto}
-                        onChange={handleFiltroTextoChange}
-                    />
+            {/* --- Filtros --- */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="Busca por nombre, apellidos o DNI"
+                            value={filtroSearch}
+                            onChange={e => setFiltroSearch(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth>
+                            <InputLabel>Sexo</InputLabel>
+                            <Select
+                                value={filtroSexo}
+                                label="Sexo"
+                                onChange={e => setFiltroSexo(e.target.value)}
+                            >
+                                {sexosFiltro.map(sexo => (
+                                    <MenuItem key={sexo} value={sexo}>{sexo}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
                 </Grid>
-                {/* Filtro Sexo */}
-                <Grid item xs={6} sm={3} md={2}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel id="filtro-sexo-label">Sexo</InputLabel>
-                        <Select
-                            labelId="filtro-sexo-label"
-                            value={filtroSexo}
-                            label="Sexo"
-                            onChange={handleFiltroSexoChange}
-                        >
-                            {sexosFiltro.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                {/* Filtro Fecha Inicio */}
-                <Grid item xs={6} sm={3} md={2.5}>
-                    <TextField
-                        fullWidth
-                        label="Fecha Inicio"
-                        type="date"
-                        size="small"
-                        InputLabelProps={{ shrink: true }}
-                        value={filtroFechaInicio}
-                        onChange={handleFiltroFechaInicioChange}
-                    />
-                </Grid>
-                {/* Filtro Fecha Fin */}
-                <Grid item xs={6} sm={3} md={2.5}>
-                    <TextField
-                        fullWidth
-                        label="Fecha Fin"
-                        type="date"
-                        size="small"
-                        InputLabelProps={{ shrink: true }}
-                        value={filtroFechaFin}
-                        onChange={handleFiltroFechaFinChange}
-                    />
-                </Grid>
-            </Grid>
+            </Paper>
 
-            {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)
-                : (
-                    <TableContainer component={Paper}>
+            {loading ? (
+                <CircularProgress />
+            ) : (
+                <Paper>
+                    <TableContainer>
                         <Table>
-                            <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
+                            <TableHead>
                                 <TableRow>
+                                    <TableCell>DNI</TableCell>
                                     <TableCell>Nombre</TableCell>
                                     <TableCell>Apellidos</TableCell>
-                                    <TableCell>DNI</TableCell>
-                                    <TableCell>Fecha de Nacimiento</TableCell>
                                     <TableCell>Sexo</TableCell>
-                                    <TableCell sx={{ width: '120px' }}>Acciones</TableCell>
+                                    <TableCell>Centro</TableCell>
+                                    <TableCell>Acciones</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {alumnosFiltrados.length === 0 && !loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={6} align="center">
-                                            {filtroTexto || filtroSexo !== 'TODOS' || filtroFechaInicio || filtroFechaFin
-                                                ? "No se encontraron alumnos con esos criterios."
-                                                : "No hay alumnos registrados."}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {alumnosFiltrados.map((alumno) => (
+                                {alumnos.map((alumno) => (
                                     <TableRow key={alumno.id}>
+                                        <TableCell>{alumno.dni}</TableCell>
                                         <TableCell>{alumno.nombre}</TableCell>
                                         <TableCell>{alumno.apellidos}</TableCell>
-                                        <TableCell>{alumno.dni}</TableCell>
-                                        <TableCell>{new Date(alumno.fechaNacimiento).toLocaleDateString()}</TableCell>
                                         <TableCell>{alumno.sexo}</TableCell>
+                                        <TableCell>{alumno.centroEducativo?.nombre || 'N/A'}</TableCell>
                                         <TableCell>
-                                            <Tooltip title="Ver Historial"><IconButton onClick={() => handleVerHistorial(alumno.id)}><AssessmentIcon color="info" /></IconButton></Tooltip>
+                                            <Tooltip title="Historial">
+                                                <IconButton onClick={() => handleVerHistorial(alumno.id)}>
+                                                    <AssessmentIcon />
+                                                </IconButton>
+                                            </Tooltip>
                                             <Tooltip title="Editar"><IconButton onClick={() => handleOpenEdit(alumno)}><EditIcon /></IconButton></Tooltip>
                                             <Tooltip title="Eliminar"><IconButton onClick={() => handleDelete(alumno.id)}><DeleteIcon color="error" /></IconButton></Tooltip>
                                         </TableCell>
@@ -244,7 +198,18 @@ function GestionAlumnos() {
                             </TableBody>
                         </Table>
                     </TableContainer>
-                )}
+
+                    <TablePagination
+                        rowsPerPageOptions={[10, 20, 30, 50]}
+                        component="div"
+                        count={totalElements}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={handleChangePage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                    />
+                </Paper>
+            )}
 
             <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500 }}>
                 <Fade in={openModal}>

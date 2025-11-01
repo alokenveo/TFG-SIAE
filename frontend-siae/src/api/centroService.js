@@ -2,8 +2,22 @@ import apiClient from './axiosConfig';
 
 const API_URL_CENTROS = '/centros';
 
-const obtenerTodosLosCentros = () => {
-    return apiClient.get(`${API_URL_CENTROS}/lista`);
+const obtenerTodosLosCentros = (page, size, search, tipo, provincia, sort = 'nombre,asc') => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    params.append('sort', sort);
+
+    if (search) {
+        params.append('search', search);
+    }
+    if (tipo && tipo !== 'TODOS') {
+        params.append('tipo', tipo);
+    }
+    if (provincia && provincia !== 'TODOS') {
+        params.append('provincia', provincia);
+    }
+    return apiClient.get(`${API_URL_CENTROS}/lista`, { params });
 };
 
 const crearCentro = (centroData) => {

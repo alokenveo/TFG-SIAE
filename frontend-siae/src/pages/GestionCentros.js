@@ -3,7 +3,7 @@ import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
     Modal, Fade, Backdrop, IconButton, Tooltip, TextField, Grid,
-    Select, MenuItem, InputLabel, FormControl
+    Select, MenuItem, InputLabel, FormControl, TablePagination
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import centroService from '../api/centroService';
 import CentroForm from '../components/CentroForm';
 import ofertaEducativaService from '../api/ofertaEducativaService';
+import useDebounce from '../hooks/useDebounce';
 
 // Estilo para el Modal
 const style = {
@@ -30,66 +31,60 @@ const tiposFiltro = ["TODOS", "PUBLICO", "PRIVADO", "CONCERTADO"];
 const provinciasFiltro = ["TODOS", "ANNOBON", "BIOKO_NORTE", "BIOKO_SUR", "CENTRO_SUR", "DJIBLOHO", "KIE_NTEM", "LITORAL", "WELE_NZAS"];
 
 function GestionCentros() {
-    const [centrosOriginales, setCentrosOriginales] = useState([]);
-    const [centrosFiltrados, setCentrosFiltrados] = useState([]);
+    const [centros, setCentros] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Estados de Paginación
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [totalElements, setTotalElements] = useState(0);
+
+    // Estados de Filtros
+    const [filtroSearch, setFiltroSearch] = useState("");
+    const [filtroTipo, setFiltroTipo] = useState("TODOS");
+    const [filtroProvincia, setFiltroProvincia] = useState("TODOS");
+
+    const debouncedSearch = useDebounce(filtroSearch, 500);
+    const debouncedTipo = useDebounce(filtroTipo, 500);
+    const debouncedProvincia = useDebounce(filtroProvincia, 500);
+
     const [openModal, setOpenModal] = useState(false);
     const [centroActual, setCentroActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
     const [nivelesSeleccionadosForm, setNivelesSeleccionadosForm] = useState([]);
 
-    // --- Estados para los Filtros ---
-    const [filtroTexto, setFiltroTexto] = useState('');
-    const [filtroTipo, setFiltroTipo] = useState('TODOS');
-    const [filtroProvincia, setFiltroProvincia] = useState('TODOS');
+    useEffect(() => {
+        const fetchCentros = async () => {
+            setLoading(true);
+            try {
+                const response = await centroService.obtenerTodosLosCentros(
+                    page,
+                    rowsPerPage,
+                    debouncedSearch,
+                    debouncedTipo,
+                    debouncedProvincia
+                );
 
-    const cargarCentros = async () => {
-        setLoading(true);
-        try {
-            const response = await centroService.obtenerTodosLosCentros();
-            const data = Array.isArray(response.data) ? response.data : [];
-            const sortedData = data.sort((a, b) => a.nombre.localeCompare(b.nombre));
-            setCentrosOriginales(sortedData);
-        } catch (error) {
-            console.error("Error al cargar los centros:", error);
-            setCentrosOriginales([]);
-        } finally {
+                setCentros(response.data.content);
+                setTotalElements(response.data.totalElements);
+            } catch (error) {
+                console.error("Error al cargar centros:", error);
+            }
             setLoading(false);
-        }
+        };
+
+        fetchCentros();
+    }, [page, rowsPerPage, debouncedSearch, debouncedTipo, debouncedProvincia]);
+
+    // --- MANEJADORES DE PAGINACIÓN ---
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
     };
 
-    useEffect(() => {
-        cargarCentros();
-    }, []);
-
-    useEffect(() => {
-        let centrosResultado = centrosOriginales;
-        const textoBusqueda = filtroTexto.toLowerCase().trim();
-
-        if (textoBusqueda) {
-            centrosResultado = centrosResultado.filter(centro =>
-                (centro.nombre && centro.nombre.toLowerCase().includes(textoBusqueda)) ||
-                (centro.tipo && centro.tipo.toLowerCase().includes(textoBusqueda)) ||
-                (centro.provincia && centro.provincia.toLowerCase().includes(textoBusqueda))
-            );
-        }
-
-        if (filtroTipo !== 'TODOS') {
-            centrosResultado = centrosResultado.filter(centro => centro.tipo === filtroTipo);
-        }
-
-        if (filtroProvincia !== 'TODOS') {
-            centrosResultado = centrosResultado.filter(centro => centro.provincia === filtroProvincia);
-        }
-
-        setCentrosFiltrados(centrosResultado);
-
-    }, [filtroTexto, filtroTipo, filtroProvincia, centrosOriginales]);
-
-    // Manejadores para los filtros
-    const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
-    const handleFiltroTipoChange = (event) => setFiltroTipo(event.target.value);
-    const handleFiltroProvinciaChange = (event) => setFiltroProvincia(event.target.value);
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
 
     const handleOpenEdit = async (centro) => {
         setIsEditMode(true);
@@ -121,9 +116,10 @@ function GestionCentros() {
 
     const handleDelete = async (id) => {
         if (window.confirm('¿Estás seguro de que deseas eliminar este centro?')) {
+            setLoading(true);
             try {
                 await centroService.eliminarCentro(id);
-                cargarCentros();
+                setPage(0);
             } catch (error) {
                 console.error("Error al eliminar el centro:", error);
             }
@@ -131,6 +127,7 @@ function GestionCentros() {
     };
 
     const handleSave = async () => {
+        setLoading(true);
         try {
             let centroGuardado;
             if (isEditMode) {
@@ -140,22 +137,11 @@ function GestionCentros() {
                 const response = await centroService.crearCentro(centroActual);
                 centroGuardado = response.data;
             }
-
-            if (centroGuardado && centroGuardado.id) {
-                const nivelIds = nivelesSeleccionadosForm.map(nivel => nivel.id);
-                try {
-                    await centroService.actualizarNivelesCentro(centroGuardado.id, nivelIds);
-                } catch (nivelError) {
-                    console.error("Error al actualizar niveles del centro:", nivelError);
-                    alert(`Centro guardado (${centroGuardado.nombre}), pero hubo un error al actualizar los niveles educativos asociados.`);
-                    return;
-                }
-            }
-            cargarCentros();
+            await centroService.actualizarNivelesCentro(centroGuardado.id, nivelesSeleccionadosForm.map(n => n.id));
             handleClose();
+            setPage(0);
         } catch (error) {
-            console.error("Error al guardar centro:", error);
-            alert(`Error al guardar centro: ${error.response?.data?.error || error.message}`);
+            console.error("Error al guardar el centro:", error);
         }
     };
 
@@ -163,99 +149,102 @@ function GestionCentros() {
         <Box>
             <Toolbar />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h4">Gestión de Centros Educativos</Typography>
+                <Typography variant="h4">Gestión de Centros</Typography>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
                     Añadir Centro
                 </Button>
             </Box>
 
-            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
-                {/* Filtro Texto */}
-                <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                        fullWidth
-                        label="Buscar..."
-                        variant="outlined"
-                        size="small"
-                        value={filtroTexto}
-                        onChange={handleFiltroTextoChange}
-                    />
+            {/* --- Filtros --- */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Filtrar por Nombre, Tipo o Provincia"
+                            value={filtroSearch}
+                            onChange={e => setFiltroSearch(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <FormControl fullWidth>
+                            <InputLabel>Tipo</InputLabel>
+                            <Select
+                                value={filtroTipo}
+                                label="Tipo"
+                                onChange={e => setFiltroTipo(e.target.value)}
+                            >
+                                {tiposFiltro.map(t => (
+                                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <FormControl fullWidth>
+                            <InputLabel>Provincia</InputLabel>
+                            <Select
+                                value={filtroProvincia}
+                                label="Provincia"
+                                onChange={e => setFiltroProvincia(e.target.value)}
+                            >
+                                {provinciasFiltro.map(p => (
+                                    <MenuItem key={p} value={p}>{p}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
                 </Grid>
-                {/* Filtro Tipo */}
-                <Grid item xs={6} sm={3} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel id="filtro-tipo-label">Tipo</InputLabel>
-                        <Select
-                            labelId="filtro-tipo-label"
-                            value={filtroTipo}
-                            label="Tipo"
-                            onChange={handleFiltroTipoChange}
-                        >
-                            {tiposFiltro.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                {/* Filtro Provincia */}
-                <Grid item xs={6} sm={3} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel id="filtro-provincia-label">Provincia</InputLabel>
-                        <Select
-                            labelId="filtro-provincia-label"
-                            value={filtroProvincia}
-                            label="Provincia"
-                            onChange={handleFiltroProvinciaChange}
-                        >
-                            {provinciasFiltro.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Grid>
-            </Grid>
+            </Paper>
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                    <CircularProgress />
-                </Box>
+                <CircularProgress />
             ) : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
-                            <TableRow>
-                                <TableCell>Nombre</TableCell>
-                                <TableCell>Tipo</TableCell>
-                                <TableCell>Provincia</TableCell>
-                                <TableCell sx={{ width: '120px' }}>Acciones</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {centrosFiltrados.length === 0 && !loading && (
+                <Paper>
+                    <TableContainer>
+                        <Table>
+                            <TableHead>
                                 <TableRow>
-                                    <TableCell colSpan={4} align="center">
-                                        {filtroTexto || filtroTipo !== 'TODOS' || filtroProvincia !== 'TODOS' ? "No se encontraron centros con esos criterios." : "No hay centros registrados."}
-                                    </TableCell>
+                                    <TableCell>Nombre</TableCell>
+                                    <TableCell>Tipo</TableCell>
+                                    <TableCell>Provincia</TableCell>
+                                    <TableCell>Acciones</TableCell>
                                 </TableRow>
-                            )}
-                            {centrosFiltrados.map((centro) => (
-                                <TableRow key={centro.id}>
-                                    <TableCell>{centro.nombre}</TableCell>
-                                    <TableCell>{centro.tipo}</TableCell>
-                                    <TableCell>{centro.provincia}</TableCell>
-                                    <TableCell>
-                                        <Tooltip title="Editar">
-                                            <IconButton onClick={() => handleOpenEdit(centro)}>
-                                                <EditIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Eliminar">
-                                            <IconButton onClick={() => handleDelete(centro.id)}>
-                                                <DeleteIcon color="error" />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                            </TableHead>
+                            <TableBody>
+                                {centros.map((centro) => (
+                                    <TableRow key={centro.id}>
+                                        <TableCell>{centro.nombre}</TableCell>
+                                        <TableCell>{centro.tipo}</TableCell>
+                                        <TableCell>{centro.provincia}</TableCell>
+                                        <TableCell>
+                                            <Tooltip title="Editar">
+                                                <IconButton onClick={() => handleOpenEdit(centro)}>
+                                                    <EditIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Eliminar">
+                                                <IconButton onClick={() => handleDelete(centro.id)}>
+                                                    <DeleteIcon color="error" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+
+                    <TablePagination
+                        rowsPerPageOptions={[10, 20, 30, 50]}
+                        component="div"
+                        count={totalElements}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={handleChangePage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                    />
+                </Paper>
             )}
 
             <Modal

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress, Modal, Fade, Backdrop,
-    TextField, Grid, Select, MenuItem
+    TextField, Grid, Select, MenuItem, InputLabel, FormControl, TablePagination
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import matriculaService from '../api/matriculaService';
 import MatriculaForm from '../components/MatriculaForm';
 import ofertaEducativaService from '../api/ofertaEducativaService';
+import useDebounce from '../hooks/useDebounce';
 
 // Estilo para el Modal
 const style = {
@@ -15,7 +16,7 @@ const style = {
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    width: 600, // Más ancho para el formulario
+    width: 600,
     bgcolor: 'background.paper',
     border: '2px solid #000',
     boxShadow: 24,
@@ -23,109 +24,95 @@ const style = {
 };
 
 function GestionMatriculas() {
-    const [matriculasOriginales, setMatriculasOriginales] = useState([]);
-    const [matriculasFiltradas, setMatriculasFiltradas] = useState([]);
+    const [matriculas, setMatriculas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [nuevaMatricula, setNuevaMatricula] = useState({});
     const [cursos, setCursos] = useState([]);
     const [anios, setAnios] = useState([]);
 
-    // --- Estados para los Filtros ---
-    const [filtroTexto, setFiltroTexto] = useState('');
-    const [filtroCurso, setFiltroCurso] = useState('');
+    // Estados de Paginación
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [totalElements, setTotalElements] = useState(0);
+
+    // Estados de Filtros
+    const [filtroSearch, setFiltroSearch] = useState("");
+    const [filtroCurso, setFiltroCurso] = useState("");
     const [filtroAnio, setFiltroAnio] = useState(2025);
 
-    const cargarMatriculas = async () => {
-        setLoading(true);
-        try {
-            const response = await matriculaService.obtenerMatriculas();
-            const data = Array.isArray(response.data) ? response.data : [];
-
-            const sortedData = data.sort((a, b) =>
-                a.alumno.apellidos.localeCompare(b.alumno.apellidos)
-            );
-
-            setMatriculasOriginales(sortedData);
-        } catch (error) {
-            console.error("Error al cargar las matrículas:", error);
-            setMatriculasOriginales([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const cargarCursos = async () => {
-        try {
-            const response = await ofertaEducativaService.obtenerCursos();
-            setCursos(Array.isArray(response.data) ? response.data : []);
-        } catch (error) {
-            console.error("Error al cargar los cursos:", error);
-            setCursos([]);
-        }
-    };
+    const debouncedSearch = useDebounce(filtroSearch, 500);
 
     useEffect(() => {
-        cargarMatriculas();
-        cargarCursos();
+        const fetchAnios = async () => {
+            try {
+                const response = await matriculaService.obtenerAnios();
+                setAnios(Array.isArray(response.data) ? response.data : []);
+            } catch (error) {
+                console.error("Error al cargar años:", error);
+            }
+        };
+
+        const fetchCursos = async () => {
+            try {
+                const response = await ofertaEducativaService.obtenerCursos();
+                setCursos(Array.isArray(response.data) ? response.data : []);
+            } catch (error) {
+                console.error("Error al cargar los cursos:", error);
+            }
+        };
+
+        fetchAnios();
+        fetchCursos();
     }, []);
 
     useEffect(() => {
-        if (matriculasOriginales.length > 0) {
-            const uniqueAnios = [...new Set(matriculasOriginales.map(m => m.anioAcademico))].sort((a, b) => a - b);
-            setAnios(uniqueAnios);
-        }
-    }, [matriculasOriginales]);
+        const fetchMatriculas = async () => {
+            setLoading(true);
+            try {
+                const response = await matriculaService.obtenerMatriculas(
+                    page,
+                    rowsPerPage,
+                    debouncedSearch,
+                    filtroCurso || null,
+                    filtroAnio || null
+                );
 
-    useEffect(() => {
-        let matriculasResultado = matriculasOriginales;
-        const textoBusqueda = filtroTexto.toLowerCase().trim();
+                setMatriculas(response.data.content);
+                setTotalElements(response.data.totalElements);
+            } catch (error) {
+                console.error("Error al cargar matrículas:", error);
+            }
+            setLoading(false);
+        };
 
-        if (textoBusqueda) {
-            matriculasResultado = matriculasResultado.filter(matricula =>
-                (matricula.alumno?.nombre && matricula.alumno.nombre.toLowerCase().includes(textoBusqueda)) ||
-                (matricula.alumno?.apellidos && matricula.alumno.apellidos.toLowerCase().includes(textoBusqueda)) ||
-                (matricula.centroEducativo?.nombre && matricula.centroEducativo.nombre.toLowerCase().includes(textoBusqueda))
-            );
-        }
+        fetchMatriculas();
+    }, [page, rowsPerPage, debouncedSearch, filtroCurso, filtroAnio]);
 
-        if (filtroCurso) {
-            matriculasResultado = matriculasResultado.filter(matricula => matricula.curso.id === filtroCurso);
-        }
-
-        if (filtroAnio) {
-            matriculasResultado = matriculasResultado.filter(matricula => matricula.anioAcademico === filtroAnio);
-        }
-
-        setMatriculasFiltradas(matriculasResultado);
-
-    }, [filtroTexto, filtroCurso, filtroAnio, matriculasOriginales]);
-
-    // Manejadores para los filtros
-    const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
-
-    const handleOpen = () => setOpenModal(true);
-
-    const handleClose = () => {
-        setOpenModal(false);
-        setNuevaMatricula({}); // Limpiar el formulario
+    // --- MANEJADORES DE PAGINACIÓN ---
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
     };
+
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
+
+    const handleOpen = () => {
+        setNuevaMatricula({});
+        setOpenModal(true);
+    };
+
+    const handleClose = () => setOpenModal(false);
 
     const handleSave = async () => {
         try {
-            // El DTO del backend espera el año como número, lo convertimos
-            const dto = {
-                ...nuevaMatricula,
-                anioAcademico: parseInt(nuevaMatricula.anioAcademico, 10)
-            };
-            delete dto.nivelId; // Borramos el campo temporal que no va al DTO
-
-            await matriculaService.registrarMatricula(dto);
+            await matriculaService.registrarMatricula(nuevaMatricula);
             handleClose();
-            cargarMatriculas(); // Recargar la lista
+            setPage(0);
         } catch (error) {
             console.error("Error al registrar la matrícula:", error);
-            // Aquí se podría mostrar un error al usuario
         }
     };
 
@@ -135,88 +122,96 @@ function GestionMatriculas() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h4">Gestión de Matrículas</Typography>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpen}>
-                    Nueva Matrícula
+                    Añadir Matrícula
                 </Button>
             </Box>
 
-            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
-                {/* Filtro Texto */}
-                <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                        fullWidth
-                        label="Buscar..."
-                        variant="outlined"
-                        size="small"
-                        value={filtroTexto}
-                        onChange={handleFiltroTextoChange}
-                    />
-                </Grid>
-                {/* Filtro Curso */}
-                <Grid item xs={12} sm={6} md={3}>
-                    <Select
-                        fullWidth
-                        value={filtroCurso}
-                        onChange={(e) => setFiltroCurso(e.target.value)}
-                        displayEmpty
-                        size="small"
-                    >
-                        <MenuItem value="">Todos los cursos</MenuItem>
-                        {cursos.map((curso) => (
-                            <MenuItem key={curso.id} value={curso.id}>
-                                {curso.nombre}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Select
-                        fullWidth
-                        value={filtroAnio}
-                        onChange={(e) => setFiltroAnio(e.target.value)}
-                        displayEmpty
-                        size="small"
-                    >
-                        <MenuItem value="">Todos los años</MenuItem>
-                        {anios.map((anio) => (
-                            <MenuItem key={anio} value={anio}>
-                                {anio}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </Grid>
-            </Grid>
-
-            {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)
-                : (
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
-                                <TableRow>
-                                    <TableCell>Alumno</TableCell>
-                                    <TableCell>Centro Educativo</TableCell>
-                                    <TableCell>Curso</TableCell>
-                                    <TableCell>Año Académico</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {matriculasFiltradas.length === 0 && !loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} align="center">
-                                            {filtroTexto || filtroCurso || filtroAnio ? "No se encontraron matrículas con esos criterios." : "No hay matrículas registradas."}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {matriculasFiltradas.map((matricula) => (
-                                    <TableRow key={matricula.id}>
-                                        <TableCell>{matricula.alumno.nombre} {matricula.alumno.apellidos}</TableCell>
-                                        <TableCell>{matricula.centroEducativo.nombre}</TableCell>
-                                        <TableCell>{matricula.curso.nombre}</TableCell>
-                                        <TableCell>{matricula.anioAcademico}</TableCell>
-                                    </TableRow>
+            {/* --- Filtros --- */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Filtrar por Alumno o Centro"
+                            value={filtroSearch}
+                            onChange={e => setFiltroSearch(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <FormControl fullWidth>
+                            <InputLabel>Curso</InputLabel>
+                            <Select
+                                value={filtroCurso}
+                                label="Curso"
+                                onChange={e => setFiltroCurso(e.target.value)}
+                                displayEmpty
+                            >
+                                <MenuItem value="">Todos los cursos</MenuItem>
+                                {cursos.map((curso) => (
+                                    <MenuItem key={curso.id} value={curso.id}>
+                                        {curso.nombre}
+                                    </MenuItem>
                                 ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <FormControl fullWidth>
+                            <InputLabel>Año Académico</InputLabel>
+                            <Select
+                                value={filtroAnio}
+                                label="Año Académico"
+                                onChange={e => setFiltroAnio(e.target.value)}
+                                displayEmpty
+                            >
+                                <MenuItem value="">Todos los años</MenuItem>
+                                {anios.map((anio) => (
+                                    <MenuItem key={anio} value={anio}>
+                                        {anio}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            {loading ? (<CircularProgress />)
+                : (
+                    <Paper>
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Alumno</TableCell>
+                                        <TableCell>Centro Educativo</TableCell>
+                                        <TableCell>Curso</TableCell>
+                                        <TableCell>Año Académico</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {matriculas.map((matricula) => (
+                                        <TableRow key={matricula.id}>
+                                            <TableCell>{matricula.alumno.nombre} {matricula.alumno.apellidos}</TableCell>
+                                            <TableCell>{matricula.centroEducativo.nombre}</TableCell>
+                                            <TableCell>{matricula.curso.nombre}</TableCell>
+                                            <TableCell>{matricula.anioAcademico}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        <TablePagination
+                            rowsPerPageOptions={[10, 20, 30, 50]}
+                            component="div"
+                            count={totalElements}
+                            rowsPerPage={rowsPerPage}
+                            page={page}
+                            onPageChange={handleChangePage}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                        />
+                    </Paper>
                 )}
 
             <Modal

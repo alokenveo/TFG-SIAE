@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.CentroEducativo;
@@ -30,9 +34,11 @@ public class CentroEducativoController {
 	private CentroEducativoService centroEducativoService;
 
 	@GetMapping("/lista")
-	public ResponseEntity<List<CentroEducativo>> obtenerTodosLosCentros() {
-		List<CentroEducativo> centros = centroEducativoService.obtenerTodosLosCentros();
-		return ResponseEntity.ok(centros);
+	public ResponseEntity<Page<CentroEducativo>> obtenerTodosLosCentros(@RequestParam(required = false) String search,
+			@RequestParam(required = false) String tipo, @RequestParam(required = false) String provincia,
+			@PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
+		Page<CentroEducativo> pagina = centroEducativoService.obtenerCentros(pageable, search, tipo, provincia);
+		return ResponseEntity.ok(pagina);
 	}
 
 	@PostMapping("/registrar")
@@ -75,8 +81,8 @@ public class CentroEducativoController {
 
 	@PutMapping("/{centroId}/niveles")
 	public ResponseEntity<?> actualizarNivelesCentro(@PathVariable Long centroId, @RequestBody List<Long> nivelIds) {
-			centroEducativoService.actualizarNivelesCentro(centroId, nivelIds);
-			return ResponseEntity.ok(Map.of("message", "Niveles actualizados correctamente"));
+		centroEducativoService.actualizarNivelesCentro(centroId, nivelIds);
+		return ResponseEntity.ok(Map.of("message", "Niveles actualizados correctamente"));
 	}
 
 }

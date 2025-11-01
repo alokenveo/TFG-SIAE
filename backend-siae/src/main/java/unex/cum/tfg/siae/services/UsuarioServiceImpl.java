@@ -1,14 +1,21 @@
 package unex.cum.tfg.siae.services;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import unex.cum.tfg.siae.model.Administrador;
 import unex.cum.tfg.siae.model.CentroEducativo;
 import unex.cum.tfg.siae.model.GestorInstitucional;
@@ -60,11 +67,9 @@ public class UsuarioServiceImpl implements UsuarioService {
 		if (usuarioRepository.existsByCorreo(admin.getCorreo())) {
 			throw new RuntimeException("El correo ya está registrado");
 		}
-		Administrador ad = new Administrador();
-		ad.setNombre(admin.getNombre());
-		ad.setCorreo(admin.getCorreo());
-		ad.setPassword(passwordEncoder.encode(admin.getPassword()));
-		return usuarioRepository.save(ad);
+
+		admin.setPassword(passwordEncoder.encode(admin.getPassword()));
+		return usuarioRepository.save(admin);
 	}
 
 	@Override
@@ -72,16 +77,49 @@ public class UsuarioServiceImpl implements UsuarioService {
 		if (usuarioRepository.existsByCorreo(invitado.getCorreo())) {
 			throw new RuntimeException("El correo ya está registrado");
 		}
-		Invitado inv = new Invitado();
-		inv.setNombre(invitado.getNombre());
-		inv.setCorreo(invitado.getCorreo());
-		inv.setPassword(passwordEncoder.encode(invitado.getPassword()));
-		return usuarioRepository.save(inv);
+
+		invitado.setPassword(passwordEncoder.encode(invitado.getPassword()));
+		return usuarioRepository.save(invitado);
 	}
 
 	@Override
-	public List<Usuario> obtenerUsuarios() {
-		return usuarioRepository.findAll();
+	public Page<Usuario> obtenerUsuarios(Pageable pageable, String search, String rol) {
+
+		Specification<Usuario> spec = (root, query, cb) -> {
+			List<Predicate> predicates = new ArrayList<>();
+
+			if (search != null && !search.isEmpty()) {
+				String searchLower = "%" + search.toLowerCase() + "%";
+				Predicate nombrePred = cb.like(cb.lower(root.get("nombre")), searchLower);
+				Predicate correoPred = cb.like(cb.lower(root.get("correo")), searchLower);
+				predicates.add(cb.or(nombrePred, correoPred));
+			}
+
+			if (rol != null && !rol.isEmpty() && !"TODOS".equals(rol)) {
+				switch (rol.toUpperCase()) {
+					case "ADMIN":
+						predicates.add(cb.equal(root.type(), Administrador.class));
+						break;
+					case "GESTOR":
+						predicates.add(cb.equal(root.type(), GestorInstitucional.class));
+						break;
+					case "INVITADO":
+						predicates.add(cb.equal(root.type(), Invitado.class));
+						break;
+					default:
+						// No agregar nada si rol inválido
+				}
+			}
+
+			return cb.and(predicates.toArray(new Predicate[0]));
+		};
+
+		if (pageable.getSort().isUnsorted()) {
+			pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+					Sort.by("nombre").ascending());
+		}
+
+		return usuarioRepository.findAll(spec, pageable);
 	}
 
 	@Override
@@ -89,14 +127,17 @@ public class UsuarioServiceImpl implements UsuarioService {
 		return usuarioRepository.findById(id).map(usuario -> {
 			usuario.setNombre(usuarioDetails.getNombre());
 			usuario.setCorreo(usuarioDetails.getCorreo());
-			// Opcional: Lógica para cambiar la contraseña si se proporciona una nueva
-			/*
-			 * if (usuarioDetails.getPassword() != null &&
-			 * !usuarioDetails.getPassword().isEmpty()) {
-			 * usuario.setPassword(passwordEncoder.encode(usuarioDetails.getPassword())); }
-			 */
+
+			if (usuarioDetails.getPassword() != null && !usuarioDetails.getPassword().isEmpty()) {
+				usuario.setPassword(passwordEncoder.encode(usuarioDetails.getPassword()));
+			}
+
+			if (usuario instanceof GestorInstitucional && usuarioDetails instanceof GestorInstitucional) {
+				((GestorInstitucional) usuario).setCentro(((GestorInstitucional) usuarioDetails).getCentro());
+			}
+
 			return usuarioRepository.save(usuario);
-		}).orElse(null);
+		}).orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
 	}
 
 	@Override

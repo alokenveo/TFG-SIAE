@@ -1,9 +1,16 @@
 package unex.cum.tfg.siae.services;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.Predicate;
 import unex.cum.tfg.siae.model.Personal;
 import unex.cum.tfg.siae.model.dto.PersonalDTO;
 import unex.cum.tfg.siae.repository.CentroEducativoRepository;
@@ -50,8 +57,36 @@ public class PersonalServiceImpl implements PersonalService {
 	}
 
 	@Override
-	public List<Personal> obtenerPersonal() {
-		return personalRepository.findAll();
+	public Page<Personal> obtenerPersonal(Pageable pageable, Long centroId, String search, String cargo) {
+
+		Specification<Personal> spec = (root, query, cb) -> {
+			List<Predicate> predicates = new ArrayList<>();
+
+			if (centroId != null) {
+				predicates.add(cb.equal(root.get("centroEducativo").get("id"), centroId));
+			}
+
+			if (search != null && !search.isEmpty()) {
+				String searchLower = "%" + search.toLowerCase() + "%";
+				Predicate dniPred = cb.like(cb.lower(root.get("dni")), searchLower);
+				Predicate nombrePred = cb.like(cb.lower(root.get("nombre")), searchLower);
+				Predicate apellidosPred = cb.like(cb.lower(root.get("apellidos")), searchLower);
+				predicates.add(cb.or(dniPred, nombrePred, apellidosPred));
+			}
+
+			if (cargo != null && !cargo.isEmpty() && !"TODOS".equals(cargo)) {
+				predicates.add(cb.equal(root.get("cargo"), cargo));
+			}
+
+			return cb.and(predicates.toArray(new Predicate[0]));
+		};
+
+		if (pageable.getSort().isUnsorted()) {
+			pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+					Sort.by("apellidos").ascending());
+		}
+
+		return personalRepository.findAll(spec, pageable);
 	}
 
 	@Override
@@ -96,5 +131,10 @@ public class PersonalServiceImpl implements PersonalService {
 	@Override
 	public List<Personal> obtenerPersonalPorCentro(Long centroId) {
 		return personalRepository.findByCentroEducativoId(centroId);
+	}
+
+	@Override
+	public List<String> obtenerCargos() {
+		return personalRepository.findDistinctCargo();
 	}
 }

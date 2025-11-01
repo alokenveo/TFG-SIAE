@@ -1,8 +1,9 @@
 package unex.cum.tfg.siae.controller;
 
-import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.Alumno;
@@ -39,9 +41,11 @@ public class AlumnoController {
 	}
 
 	@GetMapping("/lista")
-	public ResponseEntity<List<Alumno>> obtenerTodosLosAlumnos() {
+	public ResponseEntity<Page<Alumno>> obtenerAlumnos(@RequestParam(required = false) String search,
+			@RequestParam(required = false) String sexo,
+			@PageableDefault(size = 20, sort = "apellidos") Pageable pageable) {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		List<Alumno> alumnos = null;
+		Long centroId = null;
 
 		if (authentication != null
 				&& authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GESTOR"))) {
@@ -49,30 +53,13 @@ public class AlumnoController {
 			if (principal instanceof CustomUserDetails) {
 				Usuario usuario = ((CustomUserDetails) principal).getUsuario();
 				if (usuario instanceof GestorInstitucional) {
-					Long centroId = ((GestorInstitucional) usuario).getCentro().getId();
-					alumnos = alumnoService.obtenerAlumnosPorCentro(centroId);
+					centroId = ((GestorInstitucional) usuario).getCentro().getId();
 				}
 			}
-		} else {
-			alumnos = alumnoService.obtenerAlumnos();
 		}
 
-		if (alumnos.isEmpty()) {
-			return ResponseEntity.noContent().build();
-		}
-
-		return ResponseEntity.ok(alumnos);
-	}
-
-	@GetMapping("/lista-sin-centro")
-	public ResponseEntity<List<Alumno>> obtenerAlumnosSinCentro() {
-		List<Alumno> alumnos = alumnoService.obtenerAlumnosSinCentro();
-
-		if (alumnos.isEmpty()) {
-			return ResponseEntity.noContent().build();
-		}
-
-		return ResponseEntity.ok(alumnos);
+		Page<Alumno> pagina = alumnoService.obtenerAlumnos(pageable, centroId, search, sexo);
+		return ResponseEntity.ok(pagina);
 	}
 
 	@PutMapping("/editar/{id}")
@@ -95,16 +82,16 @@ public class AlumnoController {
 		AlumnoDetalleDTO alumno = alumnoService.obtenerAlumnoPorId(id);
 		return ResponseEntity.ok(alumno);
 	}
-	
+
 	@GetMapping("/dni/{dni}")
 	public ResponseEntity<AlumnoDetalleDTO> obtenerAlumnoPorDni(@PathVariable String dni) {
 		AlumnoDetalleDTO alumno = alumnoService.obtenerAlumnoPorDni(dni);
 
-	    if (alumno == null) {
-	        return ResponseEntity.notFound().build();
-	    }
+		if (alumno == null) {
+			return ResponseEntity.notFound().build();
+		}
 
-	    return ResponseEntity.ok(alumno);
+		return ResponseEntity.ok(alumno);
 	}
 
 }

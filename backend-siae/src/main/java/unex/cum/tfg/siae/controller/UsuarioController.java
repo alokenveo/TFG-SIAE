@@ -1,8 +1,9 @@
 package unex.cum.tfg.siae.controller;
 
-import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.Administrador;
@@ -59,13 +61,11 @@ public class UsuarioController {
 	}
 
 	@GetMapping("/lista")
-	public ResponseEntity<List<Usuario>> obtenerUsuarios() {
-		List<Usuario> usuarios = usuarioService.obtenerUsuarios();
-		if (usuarios.isEmpty()) {
-			return ResponseEntity.noContent().build();
-		}
-
-		return ResponseEntity.ok(usuarios);
+	public ResponseEntity<Page<Usuario>> obtenerUsuarios(@RequestParam(required = false) String search,
+			@RequestParam(required = false) String rol,
+			@PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
+		Page<Usuario> pagina = usuarioService.obtenerUsuarios(pageable, search, rol);
+		return ResponseEntity.ok(pagina);
 	}
 
 	@PutMapping("/editar/{id}")

@@ -3,6 +3,9 @@ package unex.cum.tfg.siae.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.GestorInstitucional;
@@ -39,9 +43,11 @@ public class PersonalController {
 	}
 
 	@GetMapping("/lista")
-	public ResponseEntity<List<Personal>> obtenerTodoElPersonal() {
+	public ResponseEntity<Page<Personal>> obtenerTodoElPersonal(@RequestParam(required = false) String search,
+			@RequestParam(required = false) String cargo,
+			@PageableDefault(size = 20, sort = "apellidos") Pageable pageable) {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		List<Personal> personal = null;
+		Long centroId = null;
 
 		if (authentication != null
 				&& authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GESTOR"))) {
@@ -49,19 +55,13 @@ public class PersonalController {
 			if (principal instanceof CustomUserDetails) {
 				Usuario usuario = ((CustomUserDetails) principal).getUsuario();
 				if (usuario instanceof GestorInstitucional) {
-					Long centroId = ((GestorInstitucional) usuario).getCentro().getId();
-					personal = personalService.obtenerPersonalPorCentro(centroId);
+					centroId = ((GestorInstitucional) usuario).getCentro().getId();
 				}
 			}
-		} else {
-			personal = personalService.obtenerPersonal();
 		}
 
-		if (personal.isEmpty()) {
-			return ResponseEntity.noContent().build();
-		}
-
-		return ResponseEntity.ok(personal);
+		Page<Personal> pagina = personalService.obtenerPersonal(pageable, centroId, search, cargo);
+		return ResponseEntity.ok(pagina);
 	}
 
 	@GetMapping("/{id}")
@@ -80,6 +80,12 @@ public class PersonalController {
 	public ResponseEntity<Void> eliminarPersonal(@PathVariable Long id) {
 		personalService.eliminarPersonal(id);
 		return ResponseEntity.noContent().build();
+	}
+
+	@GetMapping("/cargos")
+	public ResponseEntity<List<String>> obtenerCargos() {
+		List<String> cargos = personalService.obtenerCargos();
+		return ResponseEntity.ok(cargos);
 	}
 
 }

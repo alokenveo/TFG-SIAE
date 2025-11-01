@@ -2,8 +2,19 @@ import apiClient from './axiosConfig';
 
 const API_URL_USUARIOS = '/usuarios';
 
-const obtenerTodosLosUsuarios = () => {
-    return apiClient.get(`${API_URL_USUARIOS}/lista`);
+const obtenerTodosLosUsuarios = (page, size, search, rol, sort = 'nombre,asc') => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    params.append('sort', sort);
+
+    if (search) {
+        params.append('search', search);
+    }
+    if (rol && rol !== 'TODOS') {
+        params.append('rol', rol);
+    }
+    return apiClient.get(`${API_URL_USUARIOS}/lista`, { params });
 };
 
 // Función para crear un usuario según su rol

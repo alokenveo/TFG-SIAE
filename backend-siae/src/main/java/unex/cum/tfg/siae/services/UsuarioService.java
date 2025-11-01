@@ -1,6 +1,7 @@
 package unex.cum.tfg.siae.services;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import unex.cum.tfg.siae.model.Administrador;
 import unex.cum.tfg.siae.model.Invitado;
@@ -17,7 +18,7 @@ public interface UsuarioService {
 
 	boolean existeUsuario(Usuario usuario);
 
-	List<Usuario> obtenerUsuarios();
+	Page<Usuario> obtenerUsuarios(Pageable pageable, String search, String rol);
 
 	Usuario editarUsuario(Long id, Usuario usuario);
 

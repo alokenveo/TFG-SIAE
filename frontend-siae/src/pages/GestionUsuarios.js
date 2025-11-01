@@ -3,13 +3,14 @@ import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
     Modal, Fade, IconButton, Tooltip, Chip, TextField, Grid,
-    Select, MenuItem, InputLabel, FormControl
+    Select, MenuItem, InputLabel, FormControl, TablePagination, Backdrop
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import usuarioService from '../api/usuarioService';
 import UsuarioForm from '../components/UsuarioForm';
+import useDebounce from '../hooks/useDebounce';
 
 const style = {
     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -19,55 +20,42 @@ const style = {
 const rolesFiltro = ["TODOS", "ADMIN", "GESTOR", "INVITADO"];
 
 function GestionUsuarios() {
-    const [usuariosOriginales, setUsuariosOriginales] = useState([]);
-    const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
+    const [usuarios, setUsuarios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [usuarioActual, setUsuarioActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
 
-    // --- Estados para los Filtros ---
+    // Estados de Paginación
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [totalElements, setTotalElements] = useState(0);
+
+    // Estados para los Filtros
     const [filtroTexto, setFiltroTexto] = useState('');
     const [filtroRol, setFiltroRol] = useState('TODOS');
 
-    const cargarUsuarios = async () => {
-        setLoading(true);
-        try {
-            const response = await usuarioService.obtenerTodosLosUsuarios();
-            const data = Array.isArray(response.data) ? response.data : [];
-            const sortedData = data.sort((a, b) => a.nombre.localeCompare(b.nombre));
-            setUsuariosOriginales(sortedData);
-        } catch (error) {
-            console.error("Error al cargar los usuarios:", error);
-            setUsuariosOriginales([]);
-        } finally {
+    const debouncedTexto = useDebounce(filtroTexto, 500);
+
+    useEffect(() => {
+        const fetchUsuarios = async () => {
+            setLoading(true);
+            try {
+                const response = await usuarioService.obtenerTodosLosUsuarios(
+                    page,
+                    rowsPerPage,
+                    debouncedTexto,
+                    filtroRol
+                );
+                setUsuarios(response.data.content);
+                setTotalElements(response.data.totalElements);
+            } catch (error) {
+                console.error("Error al cargar los usuarios:", error);
+            }
             setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        cargarUsuarios();
-    }, []);
-
-    useEffect(() => {
-        let usuariosResultado = usuariosOriginales;
-        const textoBusqueda = filtroTexto.toLowerCase().trim();
-
-        if (textoBusqueda) {
-            usuariosResultado = usuariosResultado.filter(usuario =>
-                (usuario.nombre && usuario.nombre.toLowerCase().includes(textoBusqueda)) ||
-                (usuario.correo && usuario.correo.toLowerCase().includes(textoBusqueda)) ||
-                (usuario.centro?.nombre && usuario.centro.nombre.toLowerCase().includes(textoBusqueda))
-            );
-        }
-
-        if (filtroRol !== 'TODOS') {
-            usuariosResultado = usuariosResultado.filter(usuario => (usuario.rol ? usuario.rol.toUpperCase() : '') === filtroRol);
-        }
-
-        setUsuariosFiltrados(usuariosResultado);
-
-    }, [filtroTexto, filtroRol, usuariosOriginales]);
+        };
+        fetchUsuarios();
+    }, [page, rowsPerPage, debouncedTexto, filtroRol]);
 
     // Manejadores para los filtros
     const handleFiltroTextoChange = (event) => setFiltroTexto(event.target.value);
@@ -81,9 +69,7 @@ function GestionUsuarios() {
 
     const handleOpenEdit = (usuario) => {
         setIsEditMode(true);
-        // La propiedad 'rol' la extraemos del campo 'rol' que nos da el backend
-        const userWithRole = { ...usuario, rol: usuario.rol ? usuario.rol.toUpperCase() : '' };
-        setUsuarioActual(userWithRole);
+        setUsuarioActual(usuario);
         setOpenModal(true);
     };
 
@@ -101,9 +87,9 @@ function GestionUsuarios() {
                 await usuarioService.crearUsuario(usuarioActual);
             }
             handleClose();
-            cargarUsuarios();
+            setPage(0);
         } catch (error) {
-            console.error("Error al guardar el usuario:", error.response.data);
+            console.error("Error al guardar el usuario:", error);
         }
     };
 
@@ -111,36 +97,30 @@ function GestionUsuarios() {
         if (window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
             try {
                 await usuarioService.eliminarUsuario(id);
-                cargarUsuarios();
+                setPage(0);
             } catch (error) {
                 console.error("Error al eliminar el usuario:", error);
             }
         }
     };
 
-    const getRoleLabel = (role) => {
-        switch (role) {
-            case 'ADMIN':
-                return 'Administrador';
-            case 'GESTOR':
-                return 'Gestor Institucional';
-            case 'INVITADO':
-                return 'Invitado';
-            default:
-                return role;
+    // Función auxiliar para etiquetas de rol
+    const getRoleLabel = (rol) => {
+        switch (rol) {
+            case 'ADMIN': return 'Administrador';
+            case 'GESTOR': return 'Gestor Institucional';
+            case 'INVITADO': return 'Invitado';
+            default: return rol;
         }
     };
 
-    const getRoleColor = (role) => {
-        switch (role) {
-            case 'ADMIN':
-                return 'primary'; // Azul/Violeta
-            case 'GESTOR':
-                return 'success'; // Verde
-            case 'INVITADO':
-                return 'warning'; // Naranja
-            default:
-                return 'default'; // Gris
+    // Función auxiliar para colores de rol
+    const getRoleColor = (rol) => {
+        switch (rol) {
+            case 'ADMIN': return 'primary';
+            case 'GESTOR': return 'secondary';
+            case 'INVITADO': return 'default';
+            default: return 'default';
         }
     };
 
@@ -149,15 +129,17 @@ function GestionUsuarios() {
             <Toolbar />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h4">Gestión de Usuarios</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>Añadir Usuario</Button>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                    Añadir Usuario
+                </Button>
             </Box>
 
             <Grid container spacing={2} sx={{ mb: 2 }} alignItems="flex-end">
                 {/* Filtro Texto */}
-                <Grid item xs={12} sm={6} md={6}>
+                <Grid item xs={12} sm={6} md={4}>
                     <TextField
                         fullWidth
-                        label="Buscar..."
+                        label="Buscar por Nombre o Correo"
                         variant="outlined"
                         size="small"
                         value={filtroTexto}
@@ -165,7 +147,7 @@ function GestionUsuarios() {
                     />
                 </Grid>
                 {/* Filtro Rol */}
-                <Grid item xs={12} sm={6} md={6}>
+                <Grid item xs={6} sm={3} md={2}>
                     <FormControl fullWidth size="small">
                         <InputLabel id="filtro-rol-label">Rol</InputLabel>
                         <Select
@@ -174,16 +156,10 @@ function GestionUsuarios() {
                             label="Rol"
                             onChange={handleFiltroRolChange}
                         >
-                            {rolesFiltro.map(r => <MenuItem key={r} value={r}>{r === 'TODOS' ? 'TODOS' : getRoleLabel(r)}</MenuItem>)}
+                            {rolesFiltro.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Grid>
-                {/* Opcional: Botón para limpiar filtros */}
-                {/* <Grid item xs={12} sm={12} md={3}>
-                     <Button onClick={() => { setFiltroTexto(''); setFiltroRol('TODOS'); }}>
-                         Limpiar Filtros
-                     </Button>
-                 </Grid> */}
             </Grid>
 
             {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)
@@ -195,19 +171,19 @@ function GestionUsuarios() {
                                     <TableCell>Nombre</TableCell>
                                     <TableCell>Correo</TableCell>
                                     <TableCell>Rol</TableCell>
-                                    <TableCell>Centro (Si aplica)</TableCell>
+                                    <TableCell>Centro (si aplica)</TableCell>
                                     <TableCell sx={{ width: '120px' }}>Acciones</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {usuariosFiltrados.length === 0 && !loading && (
+                                {usuarios.length === 0 && !loading && (
                                     <TableRow>
                                         <TableCell colSpan={5} align="center">
-                                            {filtroTexto || filtroRol !== 'TODOS' ? "No se encontraron usuarios con esos criterios." : "No hay usuarios registrados."}
+                                            No hay usuarios registrados.
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {usuariosFiltrados.map((usuario) => (
+                                {usuarios.map((usuario) => (
                                     <TableRow key={usuario.id}>
                                         <TableCell>{usuario.nombre}</TableCell>
                                         <TableCell>{usuario.correo}</TableCell>
@@ -226,7 +202,22 @@ function GestionUsuarios() {
                     </TableContainer>
                 )}
 
-            <Modal open={openModal} onClose={handleClose} /* ... */ >
+            {!loading && (
+                <TablePagination
+                    rowsPerPageOptions={[10, 20, 30, 50]}
+                    component="div"
+                    count={totalElements}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(e, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                    }}
+                />
+            )}
+
+            <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500 }}>
                 <Fade in={openModal}>
                     <Box sx={style}>
                         <Typography variant="h6">{isEditMode ? 'Editar Usuario' : 'Añadir Nuevo Usuario'}</Typography>
