@@ -45,4 +45,11 @@ public class NotaController {
 			return ResponseEntity.notFound().build();
 		}
 	}
+	
+	@GetMapping("/matricula/{matriculaId}")
+	public ResponseEntity<List<Nota>> obtenerNotasPorMatricula(@PathVariable Long matriculaId) {
+		List<Nota> notas=notaService.obtenerNotasPorMatricula(matriculaId);
+	    return ResponseEntity.ok(notas);
+	}
+
 }

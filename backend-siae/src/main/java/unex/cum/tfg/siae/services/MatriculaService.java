@@ -12,4 +12,6 @@ public interface MatriculaService {
 	List<Matricula> obtenerMatriculas();
 
 	List<Matricula> obtenerMatriculasPorCentro(Long centroId);
+
+	List<Matricula> obtenerMatriculasPorAlumno(Long alumnoId);
 }

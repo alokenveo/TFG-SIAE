@@ -15,6 +15,7 @@ import HistorialAlumno from './pages/HistorialAlumno';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import GestionPersonal from './pages/GestionPersonal';
+import AnalisisIA from './pages/AnalisisIA';
 
 
 function PrivateRoute({ children }) {
@@ -62,7 +63,6 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Ruta Pública: Login */}
         <Route
           path="/login"
           element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
@@ -80,6 +80,19 @@ function App() {
               <MainLayout>
                 <Dashboard />
               </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/analisis-ia"
+          element={
+            <PrivateRoute>
+              <RoleBasedRoute roles={['ADMIN', 'GESTOR']}>
+                <MainLayout>
+                  <AnalisisIA />
+                </MainLayout>
+              </RoleBasedRoute>
             </PrivateRoute>
           }
         />
@@ -140,7 +153,7 @@ function App() {
         />
 
         <Route
-          path="/alumnos/:alumnoId/historial" // Ruta con parámetro
+          path="/alumnos/:alumnoId/historial"
           element={
             <PrivateRoute>
               <RoleBasedRoute roles={['ADMIN', 'GESTOR']}>

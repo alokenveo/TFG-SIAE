@@ -43,10 +43,13 @@ function GestionPersonal() {
         try {
             const response = await personalService.obtenerPersonal();
             const data = Array.isArray(response.data) ? response.data : [];
-            setPersonalOriginal(data);
+
+            const sortedData = data.sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+
+            setPersonalOriginal(sortedData);
 
             // Extraer cargos únicos para el filtro después de cargar
-            const cargos = [...new Set(data.map(p => p.cargo))].sort(); // Ordenar alfabéticamente
+            const cargos = [...new Set(sortedData.map(p => p.cargo))].sort(); // Ordenar alfabéticamente
             setCargosUnicos(cargos);
 
         } catch (error) {
@@ -126,8 +129,8 @@ function GestionPersonal() {
     const handleSave = async () => {
         try {
             if (!personalActual.dni || !personalActual.nombre || !personalActual.apellidos || !personalActual.cargo || !personalActual.centroEducativoId) {
-                 alert("Por favor, completa DNI, Nombre, Apellidos, Cargo y Centro.");
-                 return;
+                alert("Por favor, completa DNI, Nombre, Apellidos, Cargo y Centro.");
+                return;
             }
 
             const dto = {
@@ -180,43 +183,43 @@ function GestionPersonal() {
                 </Grid>
             </Grid>
 
-            {loading ? ( <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box> )
-            : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
-                            <TableRow>
-                                <TableCell>Nombre</TableCell>
-                                <TableCell>Apellidos</TableCell>
-                                <TableCell>DNI</TableCell>
-                                <TableCell>Cargo</TableCell>
-                                <TableCell>Centro Educativo</TableCell>
-                                <TableCell sx={{ width: '130px' }}>Acciones</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                             {personalFiltrado.length === 0 && !loading && (
-                                <TableRow><TableCell colSpan={6} align="center">
-                                    {filtroTexto || filtroCargo !== 'TODOS' ? "No se encontraron resultados." : "No hay personal registrado."}
-                                </TableCell></TableRow>
-                             )}
-                            {personalFiltrado.map((persona) => (
-                                <TableRow key={persona.id}>
-                                    <TableCell>{persona.nombre}</TableCell>
-                                    <TableCell>{persona.apellidos}</TableCell>
-                                    <TableCell>{persona.dni}</TableCell>
-                                    <TableCell>{persona.cargo}</TableCell>
-                                    <TableCell>{persona.centroEducativo?.nombre || 'N/A'}</TableCell>
-                                    <TableCell>
-                                        <Tooltip title="Editar"><IconButton onClick={() => handleOpenEdit(persona)}><EditIcon /></IconButton></Tooltip>
-                                        <Tooltip title="Eliminar"><IconButton onClick={() => handleDelete(persona.id)}><DeleteIcon color="error" /></IconButton></Tooltip>
-                                    </TableCell>
+            {loading ? (<Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>)
+                : (
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
+                                <TableRow>
+                                    <TableCell>Nombre</TableCell>
+                                    <TableCell>Apellidos</TableCell>
+                                    <TableCell>DNI</TableCell>
+                                    <TableCell>Cargo</TableCell>
+                                    <TableCell>Centro Educativo</TableCell>
+                                    <TableCell sx={{ width: '130px' }}>Acciones</TableCell>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            )}
+                            </TableHead>
+                            <TableBody>
+                                {personalFiltrado.length === 0 && !loading && (
+                                    <TableRow><TableCell colSpan={6} align="center">
+                                        {filtroTexto || filtroCargo !== 'TODOS' ? "No se encontraron resultados." : "No hay personal registrado."}
+                                    </TableCell></TableRow>
+                                )}
+                                {personalFiltrado.map((persona) => (
+                                    <TableRow key={persona.id}>
+                                        <TableCell>{persona.nombre}</TableCell>
+                                        <TableCell>{persona.apellidos}</TableCell>
+                                        <TableCell>{persona.dni}</TableCell>
+                                        <TableCell>{persona.cargo}</TableCell>
+                                        <TableCell>{persona.centroEducativo?.nombre || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <Tooltip title="Editar"><IconButton onClick={() => handleOpenEdit(persona)}><EditIcon /></IconButton></Tooltip>
+                                            <Tooltip title="Eliminar"><IconButton onClick={() => handleDelete(persona.id)}><DeleteIcon color="error" /></IconButton></Tooltip>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
 
             <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500 }}>
                 <Fade in={openModal}>

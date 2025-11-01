@@ -69,4 +69,7 @@ public interface NotaRepository extends JpaRepository<Nota, Long> {
 	@Query("SELECT n.asignatura.nombre, AVG(n.calificacion) FROM Nota n " + "WHERE n.anioAcademico = :anio "
 			+ "GROUP BY n.asignatura.nombre")
 	List<Object[]> findAverageByAsignaturaNacional(@Param("anio") int anio);
+	
+	List<Nota> findByAlumnoIdAndCursoIdAndAnioAcademico(Long alumnoId, Long cursoId, int anioAcademico);
+
 }

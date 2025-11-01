@@ -10,9 +10,15 @@ const registrarMatricula = (matriculaData) => {
     return apiClient.post(`${API_URL_MATRICULAS}/registrar`, matriculaData);
 };
 
+const obtenerMatriculasPorAlumno = (alumnoId) => {
+    return apiClient.get(`${API_URL_MATRICULAS}/alumno/${alumnoId}`);
+};
+
+
 const matriculaService = {
     obtenerMatriculas,
     registrarMatricula,
+    obtenerMatriculasPorAlumno,
 };
 
 export default matriculaService;

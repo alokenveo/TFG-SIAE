@@ -12,12 +12,14 @@ import unex.cum.tfg.siae.model.Alumno;
 import unex.cum.tfg.siae.model.Asignatura;
 import unex.cum.tfg.siae.model.Curso;
 import unex.cum.tfg.siae.model.GestorInstitucional;
+import unex.cum.tfg.siae.model.Matricula;
 import unex.cum.tfg.siae.model.Nota;
 import unex.cum.tfg.siae.model.Usuario;
 import unex.cum.tfg.siae.model.dto.NotaDTO;
 import unex.cum.tfg.siae.repository.AlumnoRepository;
 import unex.cum.tfg.siae.repository.AsignaturaRepository;
 import unex.cum.tfg.siae.repository.CursoRepository;
+import unex.cum.tfg.siae.repository.MatriculaRepository;
 import unex.cum.tfg.siae.repository.NotaRepository;
 import unex.cum.tfg.siae.security.CustomUserDetails;
 
@@ -29,13 +31,15 @@ public class NotaServiceImpl implements NotaService {
 	private final AsignaturaRepository asignaturaRepo;
 	private final CursoRepository cursoRepo;
 	private final NotaRepository notaRepo;
+	private final MatriculaRepository matriculaRepo;
 
 	public NotaServiceImpl(AlumnoRepository alumnoRepo, AsignaturaRepository asignaturaRepo, CursoRepository cursoRepo,
-			NotaRepository notaRepo) {
+			NotaRepository notaRepo, MatriculaRepository matriculaRepo) {
 		this.alumnoRepo = alumnoRepo;
 		this.asignaturaRepo = asignaturaRepo;
 		this.cursoRepo = cursoRepo;
 		this.notaRepo = notaRepo;
+		this.matriculaRepo = matriculaRepo;
 	}
 
 	// --- MÉTODOS HELPER ---
@@ -130,5 +134,17 @@ public class NotaServiceImpl implements NotaService {
 		}
 
 		return List.of();
+	}
+
+	@Override
+	public List<Nota> obtenerNotasPorMatricula(Long matriculaId) {
+		Matricula matricula = matriculaRepo.findById(matriculaId)
+				.orElseThrow(() -> new RuntimeException("Matrícula no encontrada"));
+
+		Long alumnoId = matricula.getAlumno().getId();
+		Long cursoId = matricula.getCurso().getId();
+		int anio = matricula.getAnioAcademico();
+
+		return notaRepo.findByAlumnoIdAndCursoIdAndAnioAcademico(alumnoId, cursoId, anio);
 	}
 }

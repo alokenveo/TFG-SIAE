@@ -43,7 +43,7 @@ public class MatriculaServiceImpl implements MatriculaService {
 
 		Curso curso = cursoRepository.findById(dto.getCursoId())
 				.orElseThrow(() -> new RuntimeException("Curso no encontrado"));
-		
+
 		alumno.setCentroEducativo(centro);
 		alumnoRepository.save(alumno);
 
@@ -52,7 +52,7 @@ public class MatriculaServiceImpl implements MatriculaService {
 		matricula.setCentroEducativo(centro);
 		matricula.setCurso(curso);
 		matricula.setAnioAcademico(dto.getAnioAcademico());
-		
+
 		return matriculaRepository.save(matricula);
 	}
 
@@ -64,6 +64,11 @@ public class MatriculaServiceImpl implements MatriculaService {
 	@Override
 	public List<Matricula> obtenerMatriculasPorCentro(Long centroId) {
 		return matriculaRepository.findByCentroEducativoId(centroId);
+	}
+
+	@Override
+	public List<Matricula> obtenerMatriculasPorAlumno(Long alumnoId) {
+		return matriculaRepository.findByAlumnoIdOrderByAnioAcademicoDesc(alumnoId);
 	}
 
 }

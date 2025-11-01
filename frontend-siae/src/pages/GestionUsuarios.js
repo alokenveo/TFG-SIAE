@@ -34,7 +34,9 @@ function GestionUsuarios() {
         setLoading(true);
         try {
             const response = await usuarioService.obtenerTodosLosUsuarios();
-            setUsuariosOriginales(response.data || []);
+            const data = Array.isArray(response.data) ? response.data : [];
+            const sortedData = data.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            setUsuariosOriginales(sortedData);
         } catch (error) {
             console.error("Error al cargar los usuarios:", error);
             setUsuariosOriginales([]);

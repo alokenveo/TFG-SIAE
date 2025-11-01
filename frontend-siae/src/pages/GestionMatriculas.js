@@ -34,14 +34,19 @@ function GestionMatriculas() {
     // --- Estados para los Filtros ---
     const [filtroTexto, setFiltroTexto] = useState('');
     const [filtroCurso, setFiltroCurso] = useState('');
-    const [filtroAnio, setFiltroAnio] = useState('');
+    const [filtroAnio, setFiltroAnio] = useState(2025);
 
     const cargarMatriculas = async () => {
         setLoading(true);
         try {
             const response = await matriculaService.obtenerMatriculas();
             const data = Array.isArray(response.data) ? response.data : [];
-            setMatriculasOriginales(data);
+
+            const sortedData = data.sort((a, b) =>
+                a.alumno.apellidos.localeCompare(b.alumno.apellidos)
+            );
+
+            setMatriculasOriginales(sortedData);
         } catch (error) {
             console.error("Error al cargar las matrículas:", error);
             setMatriculasOriginales([]);

@@ -3,11 +3,8 @@ package unex.cum.tfg.siae.services;
 import java.util.Map;
 
 public interface DashboardService {
-	
-    Map<String, Object> getAdminDashboardStats(int anioAcademico);
-    
-    Map<String, Object> getGestorDashboardStats(Long centroId, int anioAcademico);
-    
-    //List<AlumnoEnRiesgoDTO> predecirRiesgoAlumnos(Long centroId, int anioAcademico, String evaluacion);
 
+	Map<String, Object> getAdminDashboardStats(int anioAcademico);
+
+	Map<String, Object> getGestorDashboardStats(Long centroId, int anioAcademico);
 }

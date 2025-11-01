@@ -47,7 +47,9 @@ function GestionCentros() {
         setLoading(true);
         try {
             const response = await centroService.obtenerTodosLosCentros();
-            setCentrosOriginales(response.data || []);
+            const data = Array.isArray(response.data) ? response.data : [];
+            const sortedData = data.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            setCentrosOriginales(sortedData);
         } catch (error) {
             console.error("Error al cargar los centros:", error);
             setCentrosOriginales([]);

@@ -8,10 +8,10 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import { useAuth } from '../../context/AuthContext';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import OnlinePredictionIcon from '@mui/icons-material/OnlinePrediction';
 
 const drawerWidth = 240;
 
-// 2. Definir TODOS los items del menú, AÑADIENDO una propiedad 'roles'
 const allMenuItems = [
   { 
     text: 'Dashboard', 
@@ -31,11 +31,11 @@ const allMenuItems = [
     path: '/alumnos',
     roles: ['ADMIN', 'GESTOR']
   },
-  { 
-    text: 'Usuarios', 
-    icon: <SupervisorAccountIcon />, 
-    path: '/usuarios',
-    roles: ['ADMIN']
+  {
+    text: 'Personal',
+    icon: <BadgeIcon />,
+    path: '/personal',
+    roles: ['ADMIN', 'GESTOR']
   },
   {
     text: 'Matrículas',
@@ -43,23 +43,27 @@ const allMenuItems = [
     path: '/matriculas',
     roles: ['ADMIN', 'GESTOR']
   },
+  { 
+    text: 'Usuarios', 
+    icon: <SupervisorAccountIcon />, 
+    path: '/usuarios',
+    roles: ['ADMIN']
+  },
   {
-    text: 'Personal',
-    icon: <BadgeIcon />,
-    path: '/personal',
+    text: 'Análisis IA', 
+    icon: <OnlinePredictionIcon />, 
+    path: '/analisis-ia', 
     roles: ['ADMIN', 'GESTOR']
   }
 ];
 
 function Sidebar() {
-  const { usuario } = useAuth(); // 3. Obtener el usuario del contexto
+  const { usuario } = useAuth();
 
-  // 4. Si el usuario aún no ha cargado, no mostrar nada
   if (!usuario) {
     return null;
   }
 
-  // 5. Filtrar el menú basado en el rol del usuario
   const visibleItems = allMenuItems.filter(item => 
     item.roles.includes(usuario.rol)
   );
@@ -77,7 +81,6 @@ function Sidebar() {
         <Box component="img" sx={{ height: 40, mr: 1 }} src="/logo-siae.png" alt="SIAE Logo" />
       </Toolbar>
       <List>
-        {/* 6. Mapear solo los items visibles */}
         {visibleItems.map((item) => (
           <ListItem key={item.text} disablePadding component={Link} to={item.path} sx={{ color: 'inherit', textDecoration: 'none' }}>
             <ListItemButton>

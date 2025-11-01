@@ -9,6 +9,8 @@ import AddIcon from '@mui/icons-material/Add';
 import NotaForm from '../components/NotaForm';
 import alumnoService from '../api/alumnoService';
 import notaService from '../api/notaService';
+import matriculaService from '../api/matriculaService';
+
 
 // Estilo para el Modal
 const style = {
@@ -29,6 +31,8 @@ function HistorialAlumno() {
     const { alumnoId } = useParams();
     const navigate = useNavigate();
     const [alumno, setAlumno] = useState(null);
+    const [matriculas, setMatriculas] = useState([]);
+    const [matriculaSeleccionada, setMatriculaSeleccionada] = useState(null);
     const [notas, setNotas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState('');
@@ -40,31 +44,32 @@ function HistorialAlumno() {
     const cargarDatos = useCallback(async () => {
         setLoading(true);
         try {
-            const [alumnoRes, notasRes] = await Promise.all([
+            const [alumnoRes, matriculasRes] = await Promise.all([
                 alumnoService.obtenerAlumnoPorId(alumnoId),
-                notaService.obtenerNotasPorAlumno(alumnoId)
+                matriculaService.obtenerMatriculasPorAlumno(alumnoId)
             ]);
 
-            setAlumno(alumnoRes.data);
+            const alumnoData = alumnoRes.data;
+            const matriculasData = Array.isArray(matriculasRes.data) ? matriculasRes.data : [];
 
-            const notasData = Array.isArray(notasRes.data) ? notasRes.data : [];
-            setNotas(notasData);
+            setAlumno(alumnoData);
+            setMatriculas(matriculasData);
+
+            // Seleccionamos la matrícula más reciente por defecto
+            if (matriculasData.length > 0) {
+                const ordenadas = [...matriculasData].sort((a, b) => b.anioAcademico - a.anioAcademico);
+                setMatriculaSeleccionada(ordenadas[0]);
+            }
 
         } catch (error) {
             console.error("Error al cargar datos del historial:", error);
-            if (error.response && error.response.status === 403) {
-                alert("No tienes permiso para ver las notas de este alumno.");
-                navigate('/alumnos');
-            } else if (error.response && error.response.status === 404) {
-                alert("Alumno no encontrado.");
-                navigate('/alumnos');
-            }
-            setNotas([]);
-            setAlumno(null);
+            alert("Error al cargar el historial del alumno.");
+            navigate('/alumnos');
         } finally {
             setLoading(false);
         }
     }, [alumnoId, navigate]);
+
 
     useEffect(() => {
         cargarDatos();
@@ -82,6 +87,28 @@ function HistorialAlumno() {
             setSelectedYear('');
         }
     }, [notas, selectedYear]);
+
+    useEffect(() => {
+        const fetchNotas = async () => {
+            if (matriculaSeleccionada) {
+                try {
+                    const res = await notaService.obtenerNotasPorMatricula(matriculaSeleccionada.id);
+                    const data = Array.isArray(res.data) ? res.data : [];
+
+                    const sortedData = data.sort((a, b) => a.asignatura.nombre.localeCompare(b.asignatura.nombre));
+
+                    setNotas(sortedData);
+                } catch (err) {
+                    console.error("Error al cargar notas:", err);
+                    setNotas([]);
+                }
+            } else {
+                setNotas([]);
+            }
+        };
+        fetchNotas();
+    }, [matriculaSeleccionada]);
+
 
     const handleOpen = () => {
         setNuevaNota({
@@ -110,7 +137,8 @@ function HistorialAlumno() {
             const dto = {
                 ...nuevaNota,
                 anioAcademico: parseInt(nuevaNota.anioAcademico, 10),
-                calificacion: parseFloat(nuevaNota.calificacion)
+                calificacion: parseFloat(nuevaNota.calificacion),
+                matriculaId: matriculaSeleccionada?.id,
             };
             await notaService.registrarNota(dto);
             handleClose();
@@ -130,10 +158,6 @@ function HistorialAlumno() {
 
     const handleEvaluacionChange = (event) => {
         setSelectedEvaluacion(event.target.value);
-    };
-
-    const handleYearChange = (event) => {
-        setSelectedYear(event.target.value);
     };
 
     const getCentroNombre = () => {
@@ -184,19 +208,22 @@ function HistorialAlumno() {
 
             {/* Filtro por Año y Botón Registrar */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <FormControl sx={{ minWidth: 150 }}>
-                    <InputLabel id="year-select-label">Año Académico</InputLabel>
+                <FormControl sx={{ minWidth: 200 }}>
+                    <InputLabel id="matricula-select-label">Matrícula</InputLabel>
                     <Select
-                        labelId="year-select-label"
-                        id="year-select"
-                        value={selectedYear}
-                        label="Año Académico"
-                        onChange={handleYearChange}
-                        disabled={availableYears.length === 0}
+                        labelId="matricula-select-label"
+                        value={matriculaSeleccionada ? matriculaSeleccionada.id : ''}
+                        label="Matrícula"
+                        onChange={(e) => {
+                            const seleccionada = matriculas.find(m => m.id === e.target.value);
+                            setMatriculaSeleccionada(seleccionada);
+                        }}
+                        disabled={matriculas.length === 0}
                     >
-                        <MenuItem value=""><em>Todos</em></MenuItem>
-                        {availableYears.map(year => (
-                            <MenuItem key={year} value={year}>{year}</MenuItem>
+                        {matriculas.map(m => (
+                            <MenuItem key={m.id} value={m.id}>
+                                {m.anioAcademico} - {m.curso?.nombre} ({m.centroEducativo?.nombre})
+                            </MenuItem>
                         ))}
                     </Select>
                 </FormControl>

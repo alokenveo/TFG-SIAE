@@ -30,4 +30,6 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
 
 	List<Matricula> findByAnioAcademico(int anioAcademico);
 
+	List<Matricula> findByAlumnoIdOrderByAnioAcademicoDesc(Long alumnoId);
+
 }

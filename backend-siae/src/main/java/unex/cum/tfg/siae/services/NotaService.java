@@ -12,4 +12,6 @@ public interface NotaService {
 	List<Nota> obtenerNotas();
 	
 	List<Nota> obtenerNotasPorAlumno(Long alumnoId);
+
+	List<Nota> obtenerNotasPorMatricula(Long matriculaId);
 }

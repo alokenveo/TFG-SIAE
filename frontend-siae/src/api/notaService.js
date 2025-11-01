@@ -17,12 +17,18 @@ const registrarNota = (notaData) => {
     return apiClient.post(`${API_URL_NOTAS}/registrar`, notaData);
 };
 
+const obtenerNotasPorMatricula = (matriculaId) => {
+    return apiClient.get(`/notas/matricula/${matriculaId}`);
+};
+
+
 // Añadiremos editar/eliminar si es necesario más adelante
 
 const notaService = {
     obtenerNotas,
     obtenerNotasPorAlumno,
     registrarNota,
+    obtenerNotasPorMatricula,
 };
 
 export default notaService;

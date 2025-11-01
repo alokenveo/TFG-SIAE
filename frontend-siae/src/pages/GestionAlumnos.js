@@ -39,7 +39,11 @@ function GestionAlumnos() {
         setLoading(true);
         try {
             const response = await alumnoService.obtenerTodosLosAlumnos();
-            setAlumnosOriginales(response.data || []);
+            const data = Array.isArray(response.data) ? response.data : [];
+
+            const sortedData = data.sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+
+            setAlumnosOriginales(sortedData);
         } catch (error) {
             console.error("Error al cargar los alumnos:", error);
             setAlumnosOriginales([]);
