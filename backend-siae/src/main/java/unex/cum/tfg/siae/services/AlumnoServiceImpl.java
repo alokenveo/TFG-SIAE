@@ -44,9 +44,9 @@ public class AlumnoServiceImpl implements AlumnoService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public Page<Alumno> obtenerAlumnos(Pageable pageable, Long centroId, String search, String sexo) {
+	public Page<Alumno> obtenerAlumnos(Pageable pageable, Long centroId, String search, String sexo, Integer anioInicio,
+			Integer anioFin) {
 
-		// Specification es una forma de construir consultas dinámicas
 		Specification<Alumno> spec = (root, query, cb) -> {
 			List<Predicate> predicates = new ArrayList<>();
 
@@ -59,14 +59,25 @@ public class AlumnoServiceImpl implements AlumnoService {
 				Predicate dniPredicate = cb.like(cb.lower(root.get("dni")), searchLower);
 				Predicate nombrePredicate = cb.like(cb.lower(root.get("nombre")), searchLower);
 				Predicate apellidosPredicate = cb.like(cb.lower(root.get("apellidos")), searchLower);
-				predicates.add(cb.or(dniPredicate, nombrePredicate, apellidosPredicate));
+				Predicate centroPredicate = cb.like(cb.lower(root.get("centroEducativo").get("nombre")), searchLower);
+				predicates.add(cb.or(dniPredicate, nombrePredicate, apellidosPredicate, centroPredicate));
 			}
 
 			if (sexo != null && !sexo.isEmpty() && !"TODOS".equals(sexo)) {
 				try {
 					predicates.add(cb.equal(root.get("sexo"), Sexo.valueOf(sexo.toUpperCase())));
-				} catch (IllegalArgumentException e) {
+				} catch (IllegalArgumentException ignored) {
 				}
+			}
+
+			// Filtro por año de nacimiento
+			if (anioInicio != null) {
+				predicates.add(cb.greaterThanOrEqualTo(cb.function("YEAR", Integer.class, root.get("fechaNacimiento")),
+						anioInicio));
+			}
+			if (anioFin != null) {
+				predicates.add(
+						cb.lessThanOrEqualTo(cb.function("YEAR", Integer.class, root.get("fechaNacimiento")), anioFin));
 			}
 
 			return cb.and(predicates.toArray(new Predicate[0]));

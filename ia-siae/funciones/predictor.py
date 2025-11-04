@@ -4,9 +4,11 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.arima.model import ARIMA
 import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
 
 # ----------------------------
 # PREDICCIÓN POR ALUMNO / ASIGNATURAS
@@ -38,6 +40,12 @@ def predecir_por_alumno_asignaturas(
         df_asig_hist = alumno_df[alumno_df["asignatura_id"] == asig]
         nota_previa = (
             df_asig_hist["calificacion"].iloc[-1] if not df_asig_hist.empty else np.nan
+        )
+
+        nombre_asig = (
+            df_asig_hist["asignatura_nombre"].iloc[-1]
+            if "asignatura_nombre" in df_asig_hist.columns
+            else str(asig)
         )
 
         # features consistentes con los usados en entrenamiento
@@ -89,7 +97,8 @@ def predecir_por_alumno_asignaturas(
 
         results.append(
             {
-                "asignatura_id": asig,
+                "asignatura_id": int(asig),
+                "asignatura_nombre": nombre_asig,
                 "prob_suspender": round(float(prob_susp), 3),
                 "nota_esperada": round(float(nota_pred), 2),
                 "recomendaciones": recs,
@@ -181,59 +190,86 @@ def predecir_por_alumno_asignaturas(
         "recomendaciones_globales": recomendaciones_global,
     }
 
+
 # --------------------------------------------
 # PREDICCIONES AGREGADAS POR CENTRO / PROVINCIA
 # --------------------------------------------
-def predicciones_agregadas(df, models, nivel='centro_educativo_id'):
+def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
     # Validar columna
     if nivel not in df.columns:
         raise ValueError(f"Columna '{nivel}' no encontrada en df")
 
     # 1️⃣ Predicción de % suspensos esperados (usando modelo de suspensos)
     # Promedio de riesgo por fila, luego agregamos
-    features = ['edad', 'retraso', 'nota_previa', 'curso_orden', 'nivel_id',
-                'sexo_enc', 'ratio_alumno_personal', 'provincia_enc', 'asignatura_id',
-                'num_suspensos_ult_anio', 'suspensos_acumulados']
+    features = [
+        "edad",
+        "retraso",
+        "nota_previa",
+        "curso_orden",
+        "nivel_id",
+        "sexo_enc",
+        "ratio_alumno_personal",
+        "provincia_enc",
+        "asignatura_id",
+        "num_suspensos_ult_anio",
+        "suspensos_acumulados",
+    ]
 
     df_pred = df.dropna(subset=features).copy()
-    if models.get('susp_asig') is not None:
-        probs = models['susp_asig'].predict_proba(df_pred[features])[:, 1]
-        df_pred['prob_suspenso'] = probs
+    if models.get("susp_asig") is not None:
+        probs = models["susp_asig"].predict_proba(df_pred[features])[:, 1]
+        df_pred["prob_suspenso"] = probs
     else:
-        df_pred['prob_suspenso'] = (df_pred['calificacion'] < 5).astype(float)
+        df_pred["prob_suspenso"] = (df_pred["calificacion"] < 5).astype(float)
 
     # % suspensos esperados por centro/provincia
-    agregados = df_pred.groupby(nivel).agg({
-        'prob_suspenso': 'mean',
-        'calificacion': 'mean',
-        'ratio_alumno_personal': 'mean',
-        'num_personal_centro': 'first' if 'num_personal_centro' in df_pred.columns else 'mean',
-        'alumno_id': 'nunique'
-    }).reset_index()
+    agregados = (
+        df_pred.groupby(nivel)
+        .agg(
+            {
+                "prob_suspenso": "mean",
+                "calificacion": "mean",
+                "ratio_alumno_personal": "mean",
+                "num_personal_centro": (
+                    "first" if "num_personal_centro" in df_pred.columns else "mean"
+                ),
+                "alumno_id": "nunique",
+            }
+        )
+        .reset_index()
+    )
 
-    agregados.rename(columns={
-        'prob_suspenso': 'tasa_suspensos_predicha',
-        'calificacion': 'nota_media',
-        'alumno_id': 'num_alumnos'
-    }, inplace=True)
+    agregados.rename(
+        columns={
+            "prob_suspenso": "tasa_suspensos_predicha",
+            "calificacion": "nota_media",
+            "alumno_id": "num_alumnos",
+        },
+        inplace=True,
+    )
 
-    agregados['tasa_suspensos_predicha'] = (agregados['tasa_suspensos_predicha'] * 100).round(2)
+    agregados["tasa_suspensos_predicha"] = (
+        agregados["tasa_suspensos_predicha"] * 100
+    ).round(2)
 
     # 2️⃣ Ranking de centros/provincias en riesgo
-    agregados['ranking_riesgo'] = agregados['tasa_suspensos_predicha'].rank(ascending=False).astype(int)
+    agregados["ranking_riesgo"] = (
+        agregados["tasa_suspensos_predicha"].rank(ascending=False).astype(int)
+    )
 
     # 3️⃣ Impacto del ratio alumno/personal (análisis “¿qué pasaría si?”)
     # Entrenamos una regresión simple: ratio → tasa_suspensos_predicha
-    if 'ratio_alumno_personal' in agregados.columns:
-        X = agregados[['ratio_alumno_personal']]
-        y = agregados['tasa_suspensos_predicha']
+    if "ratio_alumno_personal" in agregados.columns:
+        X = agregados[["ratio_alumno_personal"]]
+        y = agregados["tasa_suspensos_predicha"]
         model_ratio = LinearRegression().fit(X, y)
         pendiente = model_ratio.coef_[0]
-        agregados['impacto_ratio'] = pendiente  # cuanto cambia la tasa si varía ratio
+        agregados["impacto_ratio"] = pendiente  # cuanto cambia la tasa si varía ratio
 
         # Simulación: si agregamos +10 docentes (↓ ratio)
-        agregados['tasa_si_10_docentes_mas'] = (
-            agregados['tasa_suspensos_predicha'] - (10 * pendiente / agregados['num_alumnos'])
+        agregados["tasa_si_10_docentes_mas"] = (
+            agregados["tasa_suspensos_predicha"]
+            - (10 * pendiente / agregados["num_alumnos"])
         ).round(2)
     else:
         model_ratio = None
@@ -241,7 +277,7 @@ def predicciones_agregadas(df, models, nivel='centro_educativo_id'):
     # 4️⃣ Tendencias temporales: forecasting de suspensos por año
     tendencias = []
     for entidad, grupo in df_pred.groupby(nivel):
-        serie = grupo.groupby('anio_academico')['suspenso'].mean()
+        serie = grupo.groupby("anio_academico")["suspenso"].mean()
         if len(serie) >= 3:
             try:
                 model = ARIMA(serie, order=(1, 1, 0))
@@ -250,7 +286,7 @@ def predicciones_agregadas(df, models, nivel='centro_educativo_id'):
                 tendencias.append((entidad, serie.index.max() + 1, forecast))
             except Exception:
                 continue
-    
+
     """
     tendencias = []
     for entidad, grupo in df_pred.groupby(nivel):
@@ -263,52 +299,83 @@ def predicciones_agregadas(df, models, nivel='centro_educativo_id'):
             tendencias.append((entidad, serie['anio_academico'].max() + 1, pred))
     """
 
-    tendencias_df = pd.DataFrame(tendencias, columns=[nivel, 'anio_pred', 'tasa_suspensos_forecast'])
-
-    # 5️⃣ Análisis de disparidades (por sexo o provincia)
-    disparidades = df_pred.groupby(['provincia', 'sexo']).agg({
-        'prob_suspenso': 'mean',
-        'calificacion': 'mean'
-    }).reset_index()
-    disparidades['tasa_suspenso_%'] = (disparidades['prob_suspenso'] * 100).round(2)
-    disparidades['gap_vs_media'] = disparidades.groupby('provincia')['tasa_suspenso_%'].transform(
-        lambda x: x - x.mean()
+    tendencias_df = pd.DataFrame(
+        tendencias, columns=[nivel, "anio_pred", "tasa_suspensos_forecast"]
     )
 
+    # 5️⃣ Análisis de disparidades (por sexo o provincia)
+    disparidades = (
+        df_pred.groupby(["provincia", "sexo"])
+        .agg({"prob_suspenso": "mean", "calificacion": "mean"})
+        .reset_index()
+    )
+    disparidades["tasa_suspenso_%"] = (disparidades["prob_suspenso"] * 100).round(2)
+    disparidades["gap_vs_media"] = disparidades.groupby("provincia")[
+        "tasa_suspenso_%"
+    ].transform(lambda x: x - x.mean())
+
     return {
-        'agregados': agregados,
-        'tendencias': tendencias_df,
-        'disparidades': disparidades,
-        'modelo_ratio': model_ratio
+        "agregados": agregados,
+        "tendencias": tendencias_df,
+        "disparidades": disparidades,
+        "modelo_ratio": model_ratio,
     }
-    
+
+
 def predecir_rendimiento_por_asignatura(df, model_susp):
     # Mismas features que en el entrenamiento
     features = [
-        'edad', 'retraso', 'nota_previa', 'curso_orden', 'nivel_id',
-        'sexo_enc', 'ratio_alumno_personal', 'provincia_enc', 'asignatura_id',
-        'num_suspensos_ult_anio', 'suspensos_acumulados'
+        "edad",
+        "retraso",
+        "nota_previa",
+        "curso_orden",
+        "nivel_id",
+        "sexo_enc",
+        "ratio_alumno_personal",
+        "provincia_enc",
+        "asignatura_id",
+        "num_suspensos_ult_anio",
+        "suspensos_acumulados",
     ]
-    
+
     # Asegurar que no haya NaN
     df_pred = df.dropna(subset=features).copy()
-    
+
     # Aplicar modelo de suspenso
     X = df_pred[features]
-    df_pred['prob_suspenso'] = model_susp.predict_proba(X)[:, 1]
-    
+    df_pred["prob_suspenso"] = model_susp.predict_proba(X)[:, 1]
+
     # Agrupar por curso y asignatura
     resumen = (
-        df_pred.groupby(['curso_id', 'asignatura_id'])
-              .agg(prob_suspenso_media=('prob_suspenso', 'mean'),
-                   n_alumnos=('alumno_id', 'nunique'))
-              .reset_index()
+        df_pred.groupby(["curso_id", "asignatura_id"])
+        .agg(
+            prob_suspenso_media=("prob_suspenso", "mean"),
+            n_alumnos=("alumno_id", "nunique"),
+        )
+        .reset_index()
     )
-    
+
     # Añadir nombres y orden
-    resumen = resumen.merge(df_pred[['curso_id', 'curso_orden', 'nivel_id']].drop_duplicates(), on='curso_id')
-    resumen = resumen.merge(df_pred[['asignatura_id', 'asignatura_nombre']].drop_duplicates(), on='asignatura_id')
-    resumen = resumen.sort_values(['nivel_id', 'curso_orden', 'prob_suspenso_media'], ascending=[True, True, False])
-    
-    resumen['tasa_suspensos_predicha'] = (resumen['prob_suspenso_media'] * 100).round(1)
-    return resumen[['nivel_id', 'curso_orden', 'asignatura_nombre', 'tasa_suspensos_predicha', 'n_alumnos']]
+    resumen = resumen.merge(
+        df_pred[["curso_id", "curso_orden", "nivel_id"]].drop_duplicates(),
+        on="curso_id",
+    )
+    resumen = resumen.merge(
+        df_pred[["asignatura_id", "asignatura_nombre"]].drop_duplicates(),
+        on="asignatura_id",
+    )
+    resumen = resumen.sort_values(
+        ["nivel_id", "curso_orden", "prob_suspenso_media"],
+        ascending=[True, True, False],
+    )
+
+    resumen["tasa_suspensos_predicha"] = (resumen["prob_suspenso_media"] * 100).round(1)
+    return resumen[
+        [
+            "nivel_id",
+            "curso_orden",
+            "asignatura_nombre",
+            "tasa_suspensos_predicha",
+            "n_alumnos",
+        ]
+    ]

@@ -1,115 +1,101 @@
 package unex.cum.tfg.siae.services;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import unex.cum.tfg.siae.model.Matricula;
-import unex.cum.tfg.siae.model.Nota;
-import unex.cum.tfg.siae.model.dto.AggregationRequestDTO;
-import unex.cum.tfg.siae.model.dto.AlumnoEnRiesgoDTO;
-import unex.cum.tfg.siae.model.dto.AlumnoEnRiesgoResponseDTO;
-import unex.cum.tfg.siae.model.dto.AlumnoInputAgregadoDTO;
-import unex.cum.tfg.siae.model.dto.AlumnoInputDTO;
-import unex.cum.tfg.siae.model.dto.PredictionRequestDTO;
-import unex.cum.tfg.siae.model.dto.RiesgoProvinciaResponseDTO;
-import unex.cum.tfg.siae.repository.AlumnoRepository;
 import unex.cum.tfg.siae.repository.MatriculaRepository;
-import unex.cum.tfg.siae.repository.NotaRepository;
 
 @Service
 public class IaServiceImpl implements IaService {
 
-	private final AlumnoRepository alumnoRepository;
 	private final MatriculaRepository matriculaRepository;
-	private final NotaRepository notaRepository;
 	private final RestTemplate restTemplate;
-
-	private static final String EVALUACION_REFERENCIA = "1ª Evaluación";
 
 	@Value("${siae.ia-service.url}")
 	private String iaServiceUrl;
 
-	public IaServiceImpl(AlumnoRepository alumnoRepository, MatriculaRepository matriculaRepository,
-			NotaRepository notaRepository, RestTemplate restTemplate) {
-
-		this.alumnoRepository = alumnoRepository;
+	public IaServiceImpl(MatriculaRepository matriculaRepository, RestTemplate restTemplate) {
 		this.matriculaRepository = matriculaRepository;
-		this.notaRepository = notaRepository;
 		this.restTemplate = restTemplate;
 	}
 
 	@Override
-	public List<AlumnoEnRiesgoDTO> getPrediccionAlumnosRiesgo(Long centroId, int anioAcademico, String evaluacion) {
-		List<Matricula> matriculas = matriculaRepository.findByCentroEducativoIdAndAnioAcademico(centroId,
-				anioAcademico);
+	public List<Map<String, Object>> getPrediccionAlumnosRiesgo(Long centroId, int anioAcademico) {
+	    List<Matricula> matriculas = matriculaRepository.findByCentroEducativoIdAndAnioAcademico(centroId, anioAcademico);
+	    
+	    List<Integer> alumnoIds = matriculas.stream()
+	            .map(m -> Math.toIntExact(m.getAlumno().getId()))
+	            .collect(Collectors.toList());
 
-		List<AlumnoInputDTO> alumnosInput = matriculas.stream().map(matricula -> {
-			List<Nota> notas = notaRepository.findByAlumnoIdAndAnioAcademicoAndEvaluacion(matricula.getAlumno().getId(),
-					anioAcademico, evaluacion);
+	    Map<String, List<Integer>> requestBody = Map.of("alumno_ids", alumnoIds);
+	    List<Map<String, Object>> resultados = new ArrayList<>();
 
-			return new AlumnoInputDTO(matricula.getAlumno().getId(), matricula.getAlumno().getFechaNacimiento(),
-					matricula.getCurso().getOrden(), matricula.getCurso().getNivel().getId(),
-					notas.stream().map(Nota::getCalificacion).collect(Collectors.toList()));
-		}).collect(Collectors.toList());
+	    try {
+	        String url = iaServiceUrl + "/predict/alumnos";
+	        ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(requestBody), Map.class);
 
-		PredictionRequestDTO requestBody = new PredictionRequestDTO(alumnosInput);
-		List<AlumnoEnRiesgoDTO> alumnosEnRiesgo = new ArrayList<>();
+	        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+	            resultados = (List<Map<String, Object>>) response.getBody().get("resultados");
+	        }
+	    } catch (Exception e) {
+	        System.err.println("Error al contactar IA (/predict/alumnos): " + e.getMessage());
+	    }
+
+	    for (Map<String, Object> r : resultados) {
+	        Integer alumnoId = (Integer) r.get("alumno_id");
+	        matriculas.stream()
+	                .filter(m -> Math.toIntExact(m.getAlumno().getId()) == alumnoId)
+	                .findFirst()
+	                .ifPresent(m -> {
+	                    r.put("nombre", m.getAlumno().getNombre());
+	                    r.put("apellidos", m.getAlumno().getApellidos());
+	                    r.put("dni", m.getAlumno().getDni());
+	                });
+	    }
+
+	    return resultados;
+	}
+
+
+	@Override
+	public Map<String, Object> getPrediccionAgregada(int anioAcademico, String nivel) {
+		// Preparar body para /predict/agregadas (nivel: provincia o centro)
+		Map<String, String> requestBody = Map.of("nivel", nivel);
 
 		try {
-			String url = iaServiceUrl + "/predict";
-			ResponseEntity<AlumnoEnRiesgoResponseDTO[]> response = restTemplate.postForEntity(url, requestBody,
-					AlumnoEnRiesgoResponseDTO[].class);
-
-			if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-				Arrays.asList(response.getBody())
-						.forEach(prediccion -> alumnoRepository.findById(prediccion.alumno_id())
-								.ifPresent(alumno -> alumnosEnRiesgo.add(new AlumnoEnRiesgoDTO(alumno,
-										prediccion.probabilidad_riesgo(), prediccion.motivo_principal()))));
+			String url = iaServiceUrl + "/predict/agregadas";
+			ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(requestBody),
+					Map.class);
+			if (response.getStatusCode().is2xxSuccessful()) {
+				return response.getBody();
 			}
 		} catch (Exception e) {
-			System.err.println("Error al contactar el servicio de IA (/predict): " + e.getMessage());
+			System.err.println("Error al contactar IA (/predict/agregadas): " + e.getMessage());
 		}
-		return alumnosEnRiesgo;
+		return Map.of();
 	}
 
 	@Override
-	public List<RiesgoProvinciaResponseDTO> getPrediccionAgregada(int anioAcademico) {
-		// Obtenemos TODAS las matrículas del año
-		List<Matricula> todasLasMatriculas = matriculaRepository.findByAnioAcademico(anioAcademico);
-
-		// Preparamos la lista de DTOs para la IA
-		List<AlumnoInputAgregadoDTO> alumnosInput = todasLasMatriculas.stream().map(matricula -> {
-			List<Nota> notas = notaRepository.findByAlumnoIdAndAnioAcademicoAndEvaluacion(matricula.getAlumno().getId(),
-					anioAcademico, EVALUACION_REFERENCIA);
-
-			return new AlumnoInputAgregadoDTO(matricula.getAlumno().getId(), matricula.getAlumno().getFechaNacimiento(),
-					matricula.getCurso().getOrden(), matricula.getCurso().getNivel().getId(),
-					notas.stream().map(Nota::getCalificacion).collect(Collectors.toList()),
-					matricula.getCentroEducativo().getProvincia().name());
-		}).collect(Collectors.toList());
-
-		AggregationRequestDTO requestBody = new AggregationRequestDTO(alumnosInput);
-
+	public List<Map<String, Object>> getRendimientoPorAsignatura() {
 		try {
-			String url = iaServiceUrl + "/predict/aggregation";
-			ResponseEntity<RiesgoProvinciaResponseDTO[]> response = restTemplate.postForEntity(url, requestBody,
-					RiesgoProvinciaResponseDTO[].class);
-
+			String url = iaServiceUrl + "/predict/rendimiento";
+			ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 			if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-				return Arrays.asList(response.getBody());
+				return (List<Map<String, Object>>) response.getBody().get("resultados");
 			}
-
 		} catch (Exception e) {
-			System.err.println("Error al contactar el servicio de IA (/predict/aggregation): " + e.getMessage());
+			System.err.println("Error al contactar IA (/predict/rendimiento): " + e.getMessage());
 		}
 		return new ArrayList<>();
 	}
-
 }

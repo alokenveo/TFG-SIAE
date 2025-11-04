@@ -8,8 +8,13 @@ const getIaStats = (anio = null) => {
     return apiClient.get('/ia/stats', { params });
 };
 
+const getRendimiento = () => {
+    return apiClient.get('/ia/rendimiento');
+};
+
 const iaService = {
     getIaStats,
+    getRendimiento,
 };
 
 export default iaService;

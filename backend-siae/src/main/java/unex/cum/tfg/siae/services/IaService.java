@@ -1,12 +1,12 @@
 package unex.cum.tfg.siae.services;
 
 import java.util.List;
-
-import unex.cum.tfg.siae.model.dto.AlumnoEnRiesgoDTO;
-import unex.cum.tfg.siae.model.dto.RiesgoProvinciaResponseDTO;
+import java.util.Map;
 
 public interface IaService {
-	List<AlumnoEnRiesgoDTO> getPrediccionAlumnosRiesgo(Long centroId, int anioAcademico, String evaluacion);
+	List<Map<String, Object>> getPrediccionAlumnosRiesgo(Long centroId, int anioAcademico);
 
-	List<RiesgoProvinciaResponseDTO> getPrediccionAgregada(int anioAcademico);
+	Map<String, Object> getPrediccionAgregada(int anioAcademico, String nivel);
+
+	List<Map<String, Object>> getRendimientoPorAsignatura();
 }

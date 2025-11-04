@@ -42,8 +42,10 @@ public class AlumnoController {
 
 	@GetMapping("/lista")
 	public ResponseEntity<Page<Alumno>> obtenerAlumnos(@RequestParam(required = false) String search,
-			@RequestParam(required = false) String sexo,
+			@RequestParam(required = false) String sexo, @RequestParam(required = false) Integer anioInicio,
+			@RequestParam(required = false) Integer anioFin,
 			@PageableDefault(size = 20, sort = "apellidos") Pageable pageable) {
+
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		Long centroId = null;
 
@@ -58,7 +60,7 @@ public class AlumnoController {
 			}
 		}
 
-		Page<Alumno> pagina = alumnoService.obtenerAlumnos(pageable, centroId, search, sexo);
+		Page<Alumno> pagina = alumnoService.obtenerAlumnos(pageable, centroId, search, sexo, anioInicio, anioFin);
 		return ResponseEntity.ok(pagina);
 	}
 

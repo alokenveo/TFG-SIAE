@@ -17,8 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import unex.cum.tfg.siae.model.GestorInstitucional;
 import unex.cum.tfg.siae.model.Usuario;
-import unex.cum.tfg.siae.model.dto.AlumnoEnRiesgoDTO;
-import unex.cum.tfg.siae.model.dto.RiesgoProvinciaResponseDTO;
 import unex.cum.tfg.siae.security.CustomUserDetails;
 import unex.cum.tfg.siae.services.IaService;
 
@@ -30,7 +28,7 @@ public class IaController {
 	@Autowired
 	private IaService iaService;
 
-	// Helper para obtener el usuario/rol actual
+	// Helper para obtener usuario/rol
 	private Optional<CustomUserDetails> getUsuarioActual() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication == null || !authentication.isAuthenticated()
@@ -42,9 +40,7 @@ public class IaController {
 
 	@GetMapping("/stats")
 	public ResponseEntity<?> getIaStats(@RequestParam(required = false) Integer anio) {
-
 		int anioAcademico = (anio != null) ? anio : LocalDate.now().getYear();
-		String evaluacionReferencia = "1ª Evaluación";
 
 		try {
 			Optional<CustomUserDetails> userDetailsOpt = getUsuarioActual();
@@ -55,24 +51,32 @@ public class IaController {
 			Usuario usuario = userDetails.getUsuario();
 
 			if ("ADMIN".equals(usuario.getRol())) {
-				List<RiesgoProvinciaResponseDTO> stats = iaService.getPrediccionAgregada(anioAcademico);
+				// Agregadas por provincia (default)
+				Map<String, Object> stats = iaService.getPrediccionAgregada(anioAcademico, "provincia");
 				return ResponseEntity.ok(stats);
 			} else if ("GESTOR".equals(usuario.getRol())) {
 				GestorInstitucional gestor = (GestorInstitucional) usuario;
 				Long centroId = gestor.getCentro().getId();
-				List<AlumnoEnRiesgoDTO> stats = iaService.getPrediccionAlumnosRiesgo(centroId, anioAcademico,
-						evaluacionReferencia);
+				List<Map<String, Object>> stats = iaService.getPrediccionAlumnosRiesgo(centroId, anioAcademico);
 				return ResponseEntity.ok(stats);
 			} else {
 				return ResponseEntity.status(403).body(Map.of("error", "Sin permisos para análisis"));
 			}
-
-		} catch (SecurityException e) {
-			return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
 		}
 	}
 
+	// Bonus: Endpoint para rendimiento por asignatura (llamado desde front si
+	// quieres)
+	@GetMapping("/rendimiento")
+	public ResponseEntity<?> getRendimiento() {
+		try {
+			List<Map<String, Object>> rendimiento = iaService.getRendimientoPorAsignatura();
+			return ResponseEntity.ok(rendimiento);
+		} catch (Exception e) {
+			return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+		}
+	}
 }

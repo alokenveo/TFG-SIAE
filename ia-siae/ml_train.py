@@ -1,4 +1,3 @@
-import joblib
 from funciones.data_loader import extraer_datos
 from funciones.features import prepare_features
 from funciones.model_trainer import train_models_extended, save_models

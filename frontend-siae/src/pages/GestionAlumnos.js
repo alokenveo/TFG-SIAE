@@ -33,9 +33,14 @@ function GestionAlumnos() {
     // Estados de Filtros
     const [filtroSearch, setFiltroSearch] = useState("");
     const [filtroSexo, setFiltroSexo] = useState("TODOS");
+    const [filtroAnioInicio, setFiltroAnioInicio] = useState("");
+    const [filtroAnioFin, setFiltroAnioFin] = useState("");
+
 
     const debouncedSearch = useDebounce(filtroSearch, 500);
     const debouncedSexo = useDebounce(filtroSexo, 500);
+    const debouncedAnioInicio = useDebounce(filtroAnioInicio, 500);
+    const debouncedAnioFin = useDebounce(filtroAnioFin, 500);
 
     const [openModal, setOpenModal] = useState(false);
     const [alumnoActual, setAlumnoActual] = useState({});
@@ -52,7 +57,9 @@ function GestionAlumnos() {
                     page,
                     rowsPerPage,
                     debouncedSearch,
-                    debouncedSexo
+                    debouncedSexo,
+                    debouncedAnioInicio,
+                    debouncedAnioFin
                 );
 
                 setAlumnos(response.data.content);
@@ -64,7 +71,7 @@ function GestionAlumnos() {
         };
 
         fetchAlumnos();
-    }, [page, rowsPerPage, debouncedSearch, debouncedSexo]);
+    }, [page, rowsPerPage, debouncedSearch, debouncedSexo, debouncedAnioInicio, debouncedAnioFin]);
 
     // --- MANEJADORES DE PAGINACIÓN ---
     const handleChangePage = (event, newPage) => {
@@ -157,6 +164,25 @@ function GestionAlumnos() {
                             </Select>
                         </FormControl>
                     </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            fullWidth
+                            label="Año nacimiento desde"
+                            type="number"
+                            value={filtroAnioInicio}
+                            onChange={e => setFiltroAnioInicio(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            fullWidth
+                            label="Año nacimiento hasta"
+                            type="number"
+                            value={filtroAnioFin}
+                            onChange={e => setFiltroAnioFin(e.target.value)}
+                        />
+                    </Grid>
+
                 </Grid>
             </Paper>
 

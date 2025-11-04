@@ -1,160 +1,172 @@
 import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
-from datetime import date
 from typing import List
-from dateutil.relativedelta import relativedelta  # Para calcular edad
+import numpy as np
+import time
+from funciones.data_loader import extraer_datos
+from funciones.features import prepare_features
+from funciones.model_trainer import load_models
+from funciones.predictor import (
+    predecir_por_alumno_asignaturas,
+    predicciones_agregadas,
+    predecir_rendimiento_por_asignatura,
+)
+from typing import List, Literal
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
+# ===============================
+# CONFIGURACIÓN FASTAPI
+# ===============================
 app = FastAPI(
-    title="SIAE - Servicio de IA",
-    description="Microservicio para predicción de riesgo académico.",
-    version="1.1.0"
+    title="SIAE - Microservicio de IA",
+    description="Servicio central de predicciones ML (individuales, agregadas y por asignatura).",
+    version="2.0.0",
 )
 
-# --- Modelos de Datos (DTOs en Python) ---
 
-class AlumnoInput(BaseModel):
-    """Datos de entrada para un solo alumno"""
-    alumno_id: int
-    fecha_nacimiento: date
-    curso_orden: int
-    nivel_id: int
-    notas_evaluacion: List[float]
-
-class PredictionRequest(BaseModel):
-    """Petición de predicción individual o por centro (GESTOR)"""
-    alumnos_data: List[AlumnoInput]
-
-class AlumnoEnRiesgoResponse(BaseModel):
-    """Respuesta para predicción de riesgo"""
-    alumno_id: int
-    probabilidad_riesgo: float
-    motivo_principal: str
-
-
-# --- NUEVOS MODELOS PARA ADMIN ---
-class AlumnoInputAgregado(AlumnoInput):
-    """Extiende AlumnoInput con información de provincia"""
-    provincia: str
-
-class AggregationRequest(BaseModel):
-    """Petición de agregación de ADMIN"""
-    alumnos_data: List[AlumnoInputAgregado]
-
-class RiesgoProvinciaResponse(BaseModel):
-    """Respuesta agregada por provincia (para mapa de calor)"""
-    provincia: str
-    porcentaje_riesgo: float
-    total_alumnos: int
-    total_en_riesgo: int
+# ===============================
+# FUNCIONES AUXILIARES
+# ===============================
+def limpiar_numpy(data):
+    """Convierte recursivamente cualquier valor numpy a tipo Python nativo."""
+    if isinstance(data, dict):
+        return {k: limpiar_numpy(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [limpiar_numpy(v) for v in data]
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        return float(data)
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
+    else:
+        return data
 
 
-# --- Función Modularizada ---
-def calcular_riesgo_heuristico(alumno: AlumnoInput):
-    """
-    Lógica heurística centralizada.
-    Devuelve (probabilidad, motivo).
-    """
-    if not alumno.notas_evaluacion:
-        return 0.0, "Sin notas"
+@lru_cache(maxsize=10)
+def predecir_cacheado(ids_tuple):
+    ids = list(ids_tuple)
 
-    probabilidad = 0.0
-    motivo = "Rendimiento estable"
+    # Vectorización: procesar todos los alumnos en un único batch
+    df_filtrado = df[df["alumno_id"].isin(ids)]
+    if df_filtrado.empty:
+        return []
 
-    # Feature 1: Nota media
-    nota_media_ev = sum(alumno.notas_evaluacion) / len(alumno.notas_evaluacion)
-    if nota_media_ev < 5.0:
-        probabilidad += 0.4
-        motivo = f"Nota media baja ({nota_media_ev:.1f})"
-    elif nota_media_ev < 6.0:
-        probabilidad += 0.2
-        motivo = f"Nota media ajustada ({nota_media_ev:.1f})"
+    resultados = []
 
-    # Feature 2: Edad vs Curso
-    edad_esperada = (alumno.curso_orden - 1) + 6
-    if alumno.nivel_id == 3:  # ESO
-        edad_esperada += 6
-    elif alumno.nivel_id == 4:  # Bachillerato
-        edad_esperada += 10
-
-    edad_alumno = relativedelta(date.today(), alumno.fecha_nacimiento).years
-    if edad_alumno >= edad_esperada + 2:
-        probabilidad += 0.4
-        motivo += " | Edad > 2 años de la esperada"
-    elif edad_alumno == edad_esperada + 1:
-        probabilidad += 0.2
-
-    # Límite superior
-    if probabilidad > 0.95:
-        probabilidad = 0.95
-
-    return probabilidad, motivo
-
-
-# --- Endpoint de Predicción (para GESTOR) ---
-@app.post("/predict", response_model=List[AlumnoEnRiesgoResponse])
-def predecir_riesgo_alumnos(request: PredictionRequest):
-    """
-    Recibe una lista de alumnos de un centro y devuelve los que están en riesgo.
-    """
-    alumnos_en_riesgo = []
-    for alumno in request.alumnos_data:
-        probabilidad, motivo = calcular_riesgo_heuristico(alumno)
-        if probabilidad >= 0.5:
-            alumnos_en_riesgo.append(
-                AlumnoEnRiesgoResponse(
-                    alumno_id=alumno.alumno_id,
-                    probabilidad_riesgo=probabilidad,
-                    motivo_principal=motivo
-                )
+    # Paralelización: si hay varios modelos, ejecutarlos en paralelo
+    def procesar(alumno_id):
+        try:
+            pred = predecir_por_alumno_asignaturas(
+                modelos, encoders, alumno_id, df_filtrado
             )
+            return pred
+        except Exception as e:
+            return {"alumno_id": alumno_id, "error": str(e)}
 
-    alumnos_en_riesgo.sort(key=lambda x: x.probabilidad_riesgo, reverse=True)
-    return alumnos_en_riesgo
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        resultados = list(executor.map(procesar, ids))
 
-
-# --- NUEVO: Endpoint de Agregación (para ADMIN) ---
-@app.post("/predict/aggregation", response_model=List[RiesgoProvinciaResponse])
-def predecir_riesgo_agregado(request: AggregationRequest):
-    """
-    Recibe una lista de TODOS los alumnos (con provincia) y devuelve
-    el riesgo agregado por provincia.
-    """
-    predicciones = {}  # { "Provincia": {"total": 0, "en_riesgo": 0, "suma_prob": 0.0} }
-
-    for alumno in request.alumnos_data:
-        provincia = alumno.provincia
-        if provincia not in predicciones:
-            predicciones[provincia] = {"total": 0, "en_riesgo": 0, "suma_prob": 0.0}
-
-        predicciones[provincia]["total"] += 1
-
-        probabilidad, _ = calcular_riesgo_heuristico(alumno)
-        if probabilidad >= 0.5:
-            predicciones[provincia]["en_riesgo"] += 1
-            predicciones[provincia]["suma_prob"] += probabilidad
-
-    # Preparar respuesta
-    response = []
-    for provincia, data in predicciones.items():
-        if data["total"] > 0:
-            media_riesgo = (data["suma_prob"] / data["en_riesgo"]) if data["en_riesgo"] > 0 else 0.0
-            response.append(
-                RiesgoProvinciaResponse(
-                    provincia=provincia,
-                    porcentaje_riesgo=media_riesgo,
-                    total_alumnos=data["total"],
-                    total_en_riesgo=data["en_riesgo"]
-                )
-            )
-
-    return response
+    return resultados
 
 
+@lru_cache(maxsize=4)
+def predicciones_agregadas_cacheadas(nivel: str):
+    print(f"🔁 Calculando predicciones agregadas para nivel: {nivel}")
+    preds = predicciones_agregadas(df, modelos, nivel=nivel)
+    return {
+        "nivel": nivel,
+        "agregados": preds["agregados"].to_dict(orient="records"),
+        "tendencias": preds["tendencias"].to_dict(orient="records"),
+        "disparidades": preds["disparidades"].to_dict(orient="records"),
+    }
+
+@lru_cache(maxsize=1)
+def rendimiento_cacheado():
+    print("🔁 Calculando predicción de rendimiento por asignatura...")
+    df_pred_rend = predecir_rendimiento_por_asignatura(df, modelos["susp_asig"])
+    return {"resultados": df_pred_rend.to_dict(orient="records")}
+
+
+
+# ===============================
+# CARGA DE MODELOS Y DATOS
+# ===============================
+print("🔄 Cargando modelos y datos de SIAE ML...")
+modelos, encoders = load_models()
+df = extraer_datos()
+df, _ = prepare_features(df)
+print("✅ Modelos y datos listos.")
+
+
+# ===============================
+# SCHEMAS DE ENTRADA/SALIDA
+# ===============================
+class AlumnoRequest(BaseModel):
+    alumno_ids: List[int]
+
+
+class AgregacionRequest(BaseModel):
+    nivel: Literal["centro_educativo_id", "provincia"]
+
+
+# ===============================
+# ENDPOINT 1: Predicción individual / por alumnos
+# ===============================
+@app.post("/predict/alumnos")
+def predict_por_alumnos(request: AlumnoRequest):
+    alumno_ids = request.alumno_ids
+    print(f"🔄 Procesando predicciones para alumnos: {len(alumno_ids)}")
+    tiempo_inicio = time.perf_counter()
+
+    resultados = predecir_cacheado(tuple(alumno_ids))
+    resultados_limpios = limpiar_numpy(resultados)
+
+    # Añadir el tiempo que se ha tardado en minutos
+    tiempo_total = time.perf_counter() - tiempo_inicio
+    print(
+        f"✅ Predicciones listas para {len(alumno_ids)} alumnos en {tiempo_total / 60:.2f} minutos."
+    )
+    return {"resultados": resultados_limpios}
+
+
+# ===============================
+# ENDPOINT 2: Predicciones agregadas
+# ===============================
+@app.post("/predict/agregadas")
+def predict_agregadas(request: AgregacionRequest):
+    try:
+        return predicciones_agregadas_cacheadas(request.nivel)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ===============================
+# ENDPOINT 3: Rendimiento por asignatura
+# ===============================
+@app.get("/predict/rendimiento")
+def predict_rendimiento():
+    if "susp_asig" not in modelos:
+        return {"error": "Modelo de suspensos no disponible."}
+    try:
+        return rendimiento_cacheado()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+
+# ===============================
+# ENDPOINT DE STATUS
+# ===============================
 @app.get("/")
-def read_root():
-    return {"servicio": "ia-siae", "status": "online"}
+def root():
+    return {"servicio": "SIAE-IA", "status": "online"}
 
 
+# ===============================
+# EJECUCIÓN LOCAL
+# ===============================
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
