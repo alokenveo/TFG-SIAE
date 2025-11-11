@@ -10,7 +10,7 @@ def prepare_features(df):
     df["anio_academico"] = df["anio_academico"].astype(int)
     df["curso_orden"] = df["curso_orden"].astype(int)
 
-    # Nota previa por asignatura (ya lo calculabas)
+    # Nota previa por asignatura
     df = df.sort_values(["alumno_id", "asignatura_id", "anio_academico", "evaluacion"])
     df["nota_previa"] = df.groupby(["alumno_id", "asignatura_id"])[
         "calificacion"

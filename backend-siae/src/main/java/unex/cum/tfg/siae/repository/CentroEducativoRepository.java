@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import unex.cum.tfg.siae.model.CentroEducativo;
@@ -14,5 +15,8 @@ public interface CentroEducativoRepository
 		extends JpaRepository<CentroEducativo, Long>, JpaSpecificationExecutor<CentroEducativo> {
 
 	List<CentroEducativo> findByProvincia(Provincia provincia);
+	
+	@Query("SELECT c.tipo, COUNT(c) FROM CentroEducativo c GROUP BY c.tipo")
+	List<Object[]> countCentrosByTipo();
 
 }

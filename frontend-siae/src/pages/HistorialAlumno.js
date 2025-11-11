@@ -9,6 +9,9 @@ import AddIcon from '@mui/icons-material/Add';
 import NotaForm from '../components/NotaForm';
 import alumnoService from '../api/alumnoService';
 import notaService from '../api/notaService';
+import DownloadIcon from '@mui/icons-material/Download';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import matriculaService from '../api/matriculaService';
 
 
@@ -149,6 +152,171 @@ function HistorialAlumno() {
         }
     };
 
+    async function getBase64FromUrl(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Error HTTP ${response.status} al cargar la imagen`);
+            }
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error("Error al cargar imagen para PDF:", error);
+            return null;
+        }
+    }
+
+
+    const handleDescargarPDF = async () => {
+        // 1. Validar que tenemos datos
+        if (!alumno || !matriculaSeleccionada || notas.length === 0) {
+            alert("No hay datos suficientes para generar el PDF. Asegúrese de tener una matrícula seleccionada con notas.");
+            return;
+        }
+
+        // 2. Inicializar el documento PDF
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+
+        // --- 1. SECCIÓN DE CABECERA (Logo Izquierda, Texto Derecha) ---
+
+        // Logo
+        const logoWidth = 30;
+        const logoHeight = 40;
+        const logoUrl = `${process.env.PUBLIC_URL}/logo-siae.png`;
+
+        const logo = await getBase64FromUrl(logoUrl);
+        if (logo) {
+            doc.addImage(logo, 'PNG', margin, margin, logoWidth, logoHeight);
+        }
+
+        const textStartX = margin + logoWidth + 10;
+        let currentY = margin + 5;
+
+        // Título del Documento
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Expediente Académico", textStartX, currentY);
+        currentY += 10;
+
+        // Datos del Alumno
+        const { anioAcademico, curso, centroEducativo } = matriculaSeleccionada;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Alumno: ${alumno.nombre} ${alumno.apellidos}`, textStartX, currentY);
+        currentY += 6;
+        doc.text(`DNI: ${alumno.dni || 'N/A'}`, textStartX, currentY);
+        currentY += 8;
+
+        // Datos de la Matrícula
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Informe: ${curso?.nombre || ''} (${anioAcademico})`, textStartX, currentY);
+        currentY += 6;
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Centro: ${centroEducativo?.nombre || getCentroNombre()}`, textStartX, currentY);
+
+        // --- 2. SECCIÓN DE TABLAS ---
+        const logoBottom = margin + logoHeight;
+        const textBottom = currentY;
+
+        let startY = Math.max(logoBottom, textBottom) + 15;
+
+        const evaluaciones = ['1ª Evaluación', '2ª Evaluación', '3ª Evaluación'];
+        const tableColumn = ["Asignatura", "Calificación"];
+        let overallTotal = 0;
+        let overallCount = 0;
+
+        evaluaciones.forEach((evalName) => {
+            const evalNotas = notas.filter(n => n.evaluacion === evalName);
+            if (evalNotas.length === 0) return;
+
+            if (startY > pageHeight - 50) {
+                doc.addPage();
+                startY = margin;
+            }
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text(evalName, margin, startY);
+            startY += 4;
+
+            const tableRows = [];
+            let evalTotal = 0;
+            let evalCount = 0;
+            const sortedEvalNotas = [...evalNotas].sort((a, b) => a.asignatura.nombre.localeCompare(b.asignatura.nombre));
+
+            sortedEvalNotas.forEach(nota => {
+                const notaData = [
+                    nota.asignatura.nombre,
+                    nota.calificacion.toFixed(2)
+                ];
+                tableRows.push(notaData);
+                evalTotal += nota.calificacion;
+                evalCount++;
+            });
+
+            if (evalCount > 0) {
+                const evalAverage = (evalTotal / evalCount).toFixed(2);
+                tableRows.push(['Promedio', evalAverage]);
+                overallTotal += evalTotal;
+                overallCount += evalCount;
+            }
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: startY,
+                theme: 'grid',
+                headStyles: { fillColor: [22, 160, 133], textColor: [255, 255, 255], fontStyle: 'bold' },
+                columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 30, halign: 'right' } },
+                margin: { left: margin, right: margin },
+                didParseCell: (data) => {
+                    if (data.row.index === tableRows.length - 1) {
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            });
+
+            startY = doc.lastAutoTable.finalY + 15;
+        });
+
+        // --- 3. SECCIÓN DE RESUMEN Y PIE ---
+
+        if (startY > pageHeight - 50) {
+            doc.addPage();
+            startY = margin;
+        }
+
+        if (overallCount > 0) {
+            const overallAverage = (overallTotal / overallCount).toFixed(2);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Promedio General: ${overallAverage}`, margin, startY);
+        }
+
+        // Pie de página
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+
+        for (let i = 1; i <= pageCount; i++) {
+            const footerText = `Generado por SIAE App el ${new Date().toLocaleDateString('es-ES')}`;
+            doc.text(footerText, margin, pageHeight - margin + 5);
+            doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - margin + 5, { align: 'right' });
+        }
+
+        // 4. Generar y Guardar el PDF
+        doc.save(`Expediente_${alumno.apellidos.replace(/ /g, '_')}_${anioAcademico}.pdf`);
+    };
+
     // Filtrar notas según el año seleccionado
     const filteredNotas = notas.filter(n => {
         const yearMatch = selectedYear === '' || n.anioAcademico === selectedYear;
@@ -241,6 +409,16 @@ function HistorialAlumno() {
                 </FormControl>
 
                 <Box sx={{ flexGrow: 1 }} />
+
+                <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleDescargarPDF}
+                    sx={{ mr: 2 }}
+                    disabled={notas.length === 0}
+                >
+                    Descargar PDF
+                </Button>
 
                 <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpen}>
                     Registrar Nota

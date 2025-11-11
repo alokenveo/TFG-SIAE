@@ -4,13 +4,14 @@ import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
     Modal, Fade, Backdrop, IconButton, Tooltip, TextField, Grid,
-    Select, MenuItem, InputLabel, FormControl, TablePagination // <-- AÑADIR
+    Select, MenuItem, InputLabel, FormControl, TablePagination
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import alumnoService from '../api/alumnoService';
 import AlumnoForm from '../components/AlumnoForm';
+import { useAuth } from '../context/AuthContext';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import useDebounce from '../hooks/useDebounce';
 
@@ -22,6 +23,7 @@ const style = {
 const sexosFiltro = ["TODOS", "MASCULINO", "FEMENINO"];
 
 function GestionAlumnos() {
+    const { usuario } = useAuth();
     const [alumnos, setAlumnos] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -211,11 +213,13 @@ function GestionAlumnos() {
                                         <TableCell>{alumno.sexo}</TableCell>
                                         <TableCell>{alumno.centroEducativo?.nombre || 'N/A'}</TableCell>
                                         <TableCell>
-                                            <Tooltip title="Historial">
-                                                <IconButton onClick={() => handleVerHistorial(alumno.id)}>
-                                                    <AssessmentIcon />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {usuario?.rol === 'GESTOR' && (
+                                                <Tooltip title="Historial">
+                                                    <IconButton onClick={() => handleVerHistorial(alumno.id)}>
+                                                        <AssessmentIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
                                             <Tooltip title="Editar"><IconButton onClick={() => handleOpenEdit(alumno)}><EditIcon /></IconButton></Tooltip>
                                             <Tooltip title="Eliminar"><IconButton onClick={() => handleDelete(alumno.id)}><DeleteIcon color="error" /></IconButton></Tooltip>
                                         </TableCell>

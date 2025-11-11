@@ -36,4 +36,8 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long>, Jpa
 	@Query("SELECT DISTINCT m.anioAcademico FROM Matricula m ORDER BY m.anioAcademico DESC")
 	List<Integer> findDistinctAnioAcademico();
 
+	@Query("SELECT m.curso.nivel.nombre, COUNT(m) " + "FROM Matricula m " + "WHERE m.anioAcademico = :anio "
+			+ "GROUP BY m.curso.nivel.nombre")
+	List<Object[]> countAlumnosByNivelNacional(@Param("anio") int anio);
+
 }

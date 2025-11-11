@@ -94,7 +94,7 @@ curso_a_nivel = {
 # ----------------------------
 # GENERAR ALUMNOS
 # ----------------------------
-def generar_alumnos(cursor, conn, num_alumnos=200):
+def generar_alumnos(cursor, conn, num_alumnos=500):
     for _ in range(num_alumnos):
         apellido = f"{faker.last_name()} {faker.last_name()}"
         sexo = random.choice(['MASCULINO', 'FEMENINO'])
@@ -214,7 +214,7 @@ def simular_flujo(cursor, conn):
 # ----------------------------
 # GENERAR PERSONAL
 # ----------------------------
-def generar_personal(cursor, conn, num_personal=50):
+def generar_personal(cursor, conn, num_personal=100):
     # Obtener todos los centros de la DB
     cursor.execute("SELECT id FROM centro_educativo")
     centros = [row[0] for row in cursor.fetchall()]
@@ -245,9 +245,9 @@ if __name__ == "__main__":
     conn = conectar_db()
     cursor = conn.cursor()
 
-    generar_alumnos(cursor, conn, num_alumnos=200)
+    generar_alumnos(cursor, conn, num_alumnos=500)
     simular_flujo(cursor, conn)
-    generar_personal(cursor, conn, num_personal=50)
+    generar_personal(cursor, conn, num_personal=100)
 
     cursor.close()
     conn.close()
