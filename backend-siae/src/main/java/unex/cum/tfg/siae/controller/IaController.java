@@ -51,9 +51,15 @@ public class IaController {
 			Usuario usuario = userDetails.getUsuario();
 
 			if ("ADMIN".equals(usuario.getRol())) {
-				// Agregadas por provincia (default)
-				Map<String, Object> stats = iaService.getPrediccionAgregada(anioAcademico, "provincia");
-				return ResponseEntity.ok(stats);
+				Map<String, Object> statsProvincia = iaService.getPrediccionAgregada(anioAcademico, "provincia");
+				
+				Map<String, Object> statsCentro = iaService.getPrediccionAgregada(anioAcademico, "centro");
+				if (statsCentro.containsKey("agregados")) {
+					statsProvincia.put("agregadosPorCentro", statsCentro.get("agregados"));
+				}
+
+				return ResponseEntity.ok(statsProvincia);
+				
 			} else if ("GESTOR".equals(usuario.getRol())) {
 				GestorInstitucional gestor = (GestorInstitucional) usuario;
 				Long centroId = gestor.getCentro().getId();

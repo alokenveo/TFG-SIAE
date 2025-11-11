@@ -143,6 +143,31 @@ const AgregadosChart = ({ data, isLoading, keyField = 'provincia' }) => {
     );
 };
 
+const AgregadosCentroChart = ({ data, isLoading, keyField = 'centro_educativo_id' }) => {
+    const chartData = data?.map(item => ({
+        name: item[keyField],  // Dynamic key, e.g., centro_educativo_id
+        'Tasa Suspensos %': item.tasa_suspensos_predicha,
+    })) || [];
+
+    return (
+        <Paper sx={{ p: 2, height: 400 }}>
+            <Typography variant="h6" gutterBottom>Agregados por Centro: Tasa Suspensos Predicha</Typography>
+            {isLoading ? <CircularProgress /> : (
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
+                        <YAxis label={{ value: '% Suspensos', angle: -90, position: 'insideLeft' }} />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="Tasa Suspensos %" fill="#FF0000" />
+                    </BarChart>
+                </ResponsiveContainer>
+            )}
+        </Paper>
+    );
+};
+
 // Componente para tendencias (line chart forecast)
 const TendenciasChart = ({ data, isLoading }) => {
     return (
@@ -274,6 +299,9 @@ function AnalisisIA() {
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                         <AgregadosChart data={stats.agregados} isLoading={loading} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                        <AgregadosCentroChart data={stats.agregadosPorCentro} isLoading={loading} />
                     </Grid>
                     <Grid item xs={12} md={6}>
                         <TendenciasChart data={stats.tendencias} isLoading={loading} />
