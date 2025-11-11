@@ -72,6 +72,7 @@ public class SecurityConfig {
 						.requestMatchers("/api/usuarios/registrar-invitado").permitAll()
 						.requestMatchers("/api/auth/request-reset").permitAll()
 						.requestMatchers("/api/auth/reset-password").permitAll()
+						.requestMatchers("/api/health").permitAll()
 
 						// Endpoints ADMIN
 						.requestMatchers("/api/usuarios/**").hasRole("ADMIN").requestMatchers("/api/centros/**")

@@ -3,8 +3,10 @@ import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
     Modal, Fade, Backdrop, IconButton, Tooltip, TextField, Grid,
-    Select, MenuItem, InputLabel, FormControl, TablePagination
+    Select, MenuItem, InputLabel, FormControl, TablePagination,
+    Snackbar, Alert
 } from '@mui/material';
+import { motion, AnimatePresence } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -12,74 +14,66 @@ import personalService from '../api/personalService';
 import PersonalForm from '../components/PersonalForm';
 import useDebounce from '../hooks/useDebounce';
 
-// Estilo Modal
-const style = {
-    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-    width: { xs: '90%', sm: 600 },
-    bgcolor: 'background.paper', border: '2px solid #000', boxShadow: 24, p: 4,
+const modalStyle = {
+    position: 'absolute',
+    top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 500,
+    bgcolor: 'background.paper',
+    borderRadius: 3,
+    boxShadow: '0 6px 25px rgba(0,0,0,0.2)',
+    p: 3
 };
 
 function GestionPersonal() {
-    // Estados
     const [personal, setPersonal] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [personalActual, setPersonalActual] = useState({});
     const [isEditMode, setIsEditMode] = useState(false);
-
-    // Estados de Paginación
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(20);
     const [totalElements, setTotalElements] = useState(0);
-
-    // Estados Filtros
-    const [filtroSearch, setFiltroSearch] = useState("");
-    const [filtroCargo, setFiltroCargo] = useState("TODOS");
+    const [filtroSearch, setFiltroSearch] = useState('');
+    const [filtroCargo, setFiltroCargo] = useState('TODOS');
     const [cargos, setCargos] = useState([]);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     const debouncedSearch = useDebounce(filtroSearch, 500);
 
-    // Cargar cargos
     useEffect(() => {
         const fetchCargos = async () => {
             try {
                 const response = await personalService.obtenerCargos();
                 setCargos(Array.isArray(response.data) ? response.data : []);
             } catch (error) {
-                console.error("Error al cargar cargos:", error);
+                console.error('Error al cargar cargos:', error);
             }
         };
         fetchCargos();
     }, []);
 
-    // Cargar personal con paginación y filtros
     useEffect(() => {
         const fetchPersonal = async () => {
             setLoading(true);
             try {
                 const response = await personalService.obtenerPersonal(
-                    page,
-                    rowsPerPage,
-                    debouncedSearch,
-                    filtroCargo !== "TODOS" ? filtroCargo : null
+                    page, rowsPerPage, debouncedSearch,
+                    filtroCargo !== 'TODOS' ? filtroCargo : null
                 );
                 setPersonal(response.data.content);
                 setTotalElements(response.data.totalElements);
             } catch (error) {
-                console.error("Error al cargar personal:", error);
+                console.error('Error al cargar personal:', error);
             }
             setLoading(false);
         };
         fetchPersonal();
     }, [page, rowsPerPage, debouncedSearch, filtroCargo]);
 
-    // Manejadores de paginación
-    const handleChangePage = (event, newPage) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
+    const handleChangePage = (_, newPage) => setPage(newPage);
+    const handleChangeRowsPerPage = (e) => {
+        setRowsPerPage(parseInt(e.target.value, 10));
         setPage(0);
     };
 
@@ -105,13 +99,16 @@ function GestionPersonal() {
         try {
             if (isEditMode) {
                 await personalService.editarPersonal(personalActual.id, personalActual);
+                setSnackbar({ open: true, message: 'Personal actualizado correctamente.', severity: 'success' });
             } else {
                 await personalService.registrarPersonal(personalActual);
+                setSnackbar({ open: true, message: 'Nuevo personal añadido con éxito.', severity: 'success' });
             }
             handleClose();
             setPage(0);
         } catch (error) {
-            console.error("Error al guardar personal:", error);
+            console.error('Error al guardar personal:', error);
+            setSnackbar({ open: true, message: 'Error al guardar personal.', severity: 'error' });
         }
     };
 
@@ -119,25 +116,44 @@ function GestionPersonal() {
         if (window.confirm('¿Estás seguro de que deseas eliminar este personal?')) {
             try {
                 await personalService.eliminarPersonal(id);
+                setSnackbar({ open: true, message: 'Personal eliminado.', severity: 'info' });
                 setPage(0);
             } catch (error) {
-                console.error("Error al eliminar personal:", error);
+                console.error('Error al eliminar personal:', error);
+                setSnackbar({ open: true, message: 'Error al eliminar.', severity: 'error' });
             }
         }
     };
 
     return (
-        <Box>
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.4 }}
+        >
             <Toolbar />
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h4">Gestión de Personal</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                <Typography variant="h4" sx={{ fontWeight: 600, color: '#003366' }}>
+                    Gestión de Personal
+                </Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenCreate}
+                    sx={{
+                        background: 'linear-gradient(90deg,#00579b,#00897b)',
+                        '&:hover': { background: 'linear-gradient(90deg,#004b85,#00796b)' },
+                        fontWeight: 600
+                    }}
+                >
                     Añadir Personal
                 </Button>
             </Box>
 
             {/* Filtros */}
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: '0 4px 10px rgba(0,0,0,0.08)' }}>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                         <TextField
@@ -166,71 +182,99 @@ function GestionPersonal() {
             </Paper>
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Box sx={{ textAlign: 'center', mt: 4 }}>
                     <CircularProgress />
                 </Box>
             ) : (
-                <Paper>
-                    <TableContainer>
-                        <Table>
-                            <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
-                                <TableRow>
-                                    <TableCell>Nombre</TableCell>
-                                    <TableCell>Apellidos</TableCell>
-                                    <TableCell>DNI</TableCell>
-                                    <TableCell>Cargo</TableCell>
-                                    <TableCell>Centro Educativo</TableCell>
-                                    <TableCell>Acciones</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {personal.length === 0 ? (
-                                    <TableRow><TableCell colSpan={6} align="center">
-                                        No hay personal registrado.
-                                    </TableCell></TableRow>
-                                ) : (
-                                    personal.map((persona) => (
-                                        <TableRow key={persona.id}>
-                                            <TableCell>{persona.nombre}</TableCell>
-                                            <TableCell>{persona.apellidos}</TableCell>
-                                            <TableCell>{persona.dni}</TableCell>
-                                            <TableCell>{persona.cargo}</TableCell>
-                                            <TableCell>{persona.centroEducativo?.nombre || 'N/A'}</TableCell>
-                                            <TableCell>
-                                                <Tooltip title="Editar"><IconButton onClick={() => handleOpenEdit(persona)}><EditIcon /></IconButton></Tooltip>
-                                                <Tooltip title="Eliminar"><IconButton onClick={() => handleDelete(persona.id)}><DeleteIcon color="error" /></IconButton></Tooltip>
-                                            </TableCell>
+                <AnimatePresence>
+                    <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                        <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow sx={{ background: 'rgba(0,87,155,0.1)' }}>
+                                            <TableCell><strong>Nombre</strong></TableCell>
+                                            <TableCell><strong>Apellidos</strong></TableCell>
+                                            <TableCell><strong>DNI</strong></TableCell>
+                                            <TableCell><strong>Cargo</strong></TableCell>
+                                            <TableCell><strong>Centro Educativo</strong></TableCell>
+                                            <TableCell><strong>Acciones</strong></TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    <TablePagination
-                        rowsPerPageOptions={[10, 20, 30, 50]}
-                        component="div"
-                        count={totalElements}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={handleChangePage}
-                        onRowsPerPageChange={handleChangeRowsPerPage}
-                    />
-                </Paper>
+                                    </TableHead>
+                                    <TableBody>
+                                        {personal.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} align="center">
+                                                    No hay personal registrado.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            personal.map((persona) => (
+                                                <TableRow
+                                                    key={persona.id}
+                                                    hover
+                                                    sx={{
+                                                        transition: 'background 0.2s',
+                                                        '&:hover': { background: 'rgba(0,137,123,0.06)' }
+                                                    }}
+                                                >
+                                                    <TableCell>{persona.nombre}</TableCell>
+                                                    <TableCell>{persona.apellidos}</TableCell>
+                                                    <TableCell>{persona.dni}</TableCell>
+                                                    <TableCell>{persona.cargo}</TableCell>
+                                                    <TableCell>{persona.centroEducativo?.nombre || 'N/A'}</TableCell>
+                                                    <TableCell>
+                                                        <Tooltip title="Editar">
+                                                            <IconButton onClick={() => handleOpenEdit(persona)}>
+                                                                <EditIcon color="primary" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Eliminar">
+                                                            <IconButton onClick={() => handleDelete(persona.id)}>
+                                                                <DeleteIcon color="error" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                            <TablePagination
+                                rowsPerPageOptions={[10, 20, 30, 50]}
+                                component="div"
+                                count={totalElements}
+                                rowsPerPage={rowsPerPage}
+                                page={page}
+                                onPageChange={handleChangePage}
+                                onRowsPerPageChange={handleChangeRowsPerPage}
+                            />
+                        </Paper>
+                    </motion.div>
+                </AnimatePresence>
             )}
 
-            <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500 }}>
+            {/* Modal */}
+            <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 300 }}>
                 <Fade in={openModal}>
-                    <Box sx={style}>
-                        <Typography variant="h6" component="h2">{isEditMode ? 'Editar Personal' : 'Añadir Nuevo Personal'}</Typography>
+                    <Box sx={modalStyle}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                            {isEditMode ? 'Editar Personal' : 'Añadir Nuevo Personal'}
+                        </Typography>
                         <PersonalForm personal={personalActual} setPersonal={setPersonalActual} />
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                             <Button onClick={handleClose}>Cancelar</Button>
-                            <Button onClick={handleSave} variant="contained" sx={{ ml: 1 }}>Guardar</Button>
+                            <Button variant="contained" onClick={handleSave}>Guardar</Button>
                         </Box>
                     </Box>
                 </Fade>
             </Modal>
-        </Box>
+
+            <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+                <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+            </Snackbar>
+        </motion.div>
     );
 }
 

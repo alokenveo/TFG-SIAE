@@ -1,49 +1,49 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Box, CssBaseline } from '@mui/material';
+import { Box, CssBaseline, CircularProgress } from '@mui/material';
 import { useAuth } from './context/AuthContext';
 
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
+import PageTransition from './components/layout/PageTransition';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import GestionCentros from './pages/GestionCentros';
-import GestionAlumnos from './pages/GestionAlumnos';
-import GestionUsuarios from './pages/GestionUsuarios';
-import GestionMatriculas from './pages/GestionMatriculas';
-import HistorialAlumno from './pages/HistorialAlumno';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import GestionPersonal from './pages/GestionPersonal';
-import AnalisisIA from './pages/AnalisisIA';
 
+// Lazy load pages for perf
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const GestionCentros = lazy(() => import('./pages/GestionCentros'));
+const GestionAlumnos = lazy(() => import('./pages/GestionAlumnos'));
+const GestionUsuarios = lazy(() => import('./pages/GestionUsuarios'));
+const GestionMatriculas = lazy(() => import('./pages/GestionMatriculas'));
+const HistorialAlumno = lazy(() => import('./pages/HistorialAlumno'));
+const GestionPersonal = lazy(() => import('./pages/GestionPersonal'));
+const AnalisisIA = lazy(() => import('./pages/AnalisisIA'));
+
+function LoadingFull() {
+  return (
+    <Box sx={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <CircularProgress />
+    </Box>
+  );
+}
 
 function PrivateRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, checkingAuth } = useAuth(); // checkingAuth: opcional pero recomendable
+  if (checkingAuth) return <LoadingFull />;
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
-// --- NUEVO COMPONENTE ---
-/**
- * Componente de Ruta Basada en Rol
- * Comprueba si el rol del usuario está en la lista de roles permitidos.
- * Si no, lo redirige al Dashboard.
- */
-function RoleBasedRoute({ children, roles }) {
+function RoleBasedRoute({ children, roles = [] }) {
   const { usuario } = useAuth();
-
+  // Si usuario no está cargado aún: mostrar fallback neutral
+  if (!usuario) return <Navigate to="/login" replace />;
   if (!roles.includes(usuario.rol)) {
-    // Si no tiene el rol, redirigir a la página principal
     return <Navigate to="/" replace />;
   }
-
   return children;
 }
-// --- FIN NUEVO COMPONENTE ---
 
-/**
- * Componente Layout Principal (Sin cambios)
- */
 function MainLayout({ children }) {
   return (
     <Box sx={{ display: 'flex' }}>
@@ -51,7 +51,9 @@ function MainLayout({ children }) {
       <Sidebar />
       <Box component="main" sx={{ flexGrow: 1, p: 3, backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         <Navbar />
-        {children}
+        <Suspense fallback={<LoadingFull />}>
+          {children}
+        </Suspense>
       </Box>
     </Box>
   );
@@ -63,16 +65,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
-        />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* --- RUTAS PRIVADAS ACTUALIZADAS --- */}
-
-        {/* Dashboard (Todos los roles logueados) */}
         <Route
           path="/"
           element={
@@ -97,7 +93,6 @@ function App() {
           }
         />
 
-        {/* Centros (Solo ADMIN) */}
         <Route
           path="/centros"
           element={
@@ -111,7 +106,6 @@ function App() {
           }
         />
 
-        {/* Alumnos (ADMIN y GESTOR) */}
         <Route
           path="/alumnos"
           element={
@@ -125,7 +119,6 @@ function App() {
           }
         />
 
-        {/* Usuarios (Solo ADMIN) */}
         <Route
           path="/usuarios"
           element={
@@ -174,6 +167,19 @@ function App() {
                   <GestionPersonal />
                 </MainLayout>
               </RoleBasedRoute>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <PageTransition>
+                  <Dashboard />
+                </PageTransition>
+              </MainLayout>
             </PrivateRoute>
           }
         />
