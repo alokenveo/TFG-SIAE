@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
@@ -53,22 +53,23 @@ function GestionAlumnos() {
   const debouncedAnioInicio = useDebounce(filtroAnioInicio, 500);
   const debouncedAnioFin = useDebounce(filtroAnioFin, 500);
 
-  useEffect(() => {
-    const fetchAlumnos = async () => {
-      setLoading(true);
-      try {
-        const response = await alumnoService.obtenerTodosLosAlumnos(
-          page, rowsPerPage, debouncedSearch, debouncedSexo, debouncedAnioInicio, debouncedAnioFin
-        );
-        setAlumnos(response.data.content);
-        setTotalElements(response.data.totalElements);
-      } catch (error) {
-        console.error("Error al cargar alumnos:", error);
-      }
-      setLoading(false);
-    };
-    fetchAlumnos();
+  const fetchAlumnos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await alumnoService.obtenerTodosLosAlumnos(
+        page, rowsPerPage, debouncedSearch, debouncedSexo, debouncedAnioInicio, debouncedAnioFin
+      );
+      setAlumnos(response.data.content);
+      setTotalElements(response.data.totalElements);
+    } catch (error) {
+      console.error("Error al cargar alumnos:", error);
+    }
+    setLoading(false);
   }, [page, rowsPerPage, debouncedSearch, debouncedSexo, debouncedAnioInicio, debouncedAnioFin]);
+
+  useEffect(() => {
+    fetchAlumnos();
+  }, [fetchAlumnos]);
 
   const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
@@ -92,14 +93,14 @@ function GestionAlumnos() {
     setLoading(true);
     try {
       if (isEditMode) {
-        await alumnoService.updateAlumno(alumnoActual.id, alumnoActual);
+        await alumnoService.editarAlumno(alumnoActual.id, alumnoActual);
         setSnackbar({ open: true, message: 'Alumno actualizado con éxito.', severity: 'success' });
       } else {
-        await alumnoService.createAlumno(alumnoActual);
+        await alumnoService.crearAlumno(alumnoActual);
         setSnackbar({ open: true, message: 'Alumno añadido correctamente.', severity: 'success' });
       }
       handleClose();
-      setPage(0);
+      fetchAlumnos();
     } catch (error) {
       console.error("Error al guardar alumno:", error);
       setSnackbar({ open: true, message: 'Error al guardar alumno.', severity: 'error' });
@@ -112,9 +113,9 @@ function GestionAlumnos() {
     if (window.confirm('¿Estás seguro de que quieres eliminar este alumno?')) {
       setLoading(true);
       try {
-        await alumnoService.deleteAlumno(id);
+        await alumnoService.eliminarAlumno(id);
         setSnackbar({ open: true, message: 'Alumno eliminado.', severity: 'info' });
-        setPage(0);
+        fetchAlumnos();
       } catch (error) {
         console.error("Error al eliminar alumno:", error);
         setSnackbar({ open: true, message: 'Error al eliminar.', severity: 'error' });
@@ -158,7 +159,7 @@ function GestionAlumnos() {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="Busca por nombre, apellidos o DNI"
+              label="Busca por nombre, apellidos, DNI o centro"
               value={filtroSearch}
               onChange={e => setFiltroSearch(e.target.value)}
             />

@@ -1,31 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Typography, Box, Toolbar, Button, Table, TableBody, TableCell, Select, MenuItem, InputLabel, FormControl,
-    TableContainer, TableHead, TableRow, Paper, CircularProgress, Grid, Modal, Fade, Backdrop
+    Typography, Box, Toolbar, Button, Table, TableBody, TableCell, Select,
+    MenuItem, InputLabel, FormControl, TableContainer, TableHead, TableRow,
+    Paper, CircularProgress, Grid, Modal, Fade, Backdrop
 } from '@mui/material';
+import { motion, AnimatePresence } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
+import DownloadIcon from '@mui/icons-material/Download';
 import NotaForm from '../components/NotaForm';
 import alumnoService from '../api/alumnoService';
 import notaService from '../api/notaService';
-import DownloadIcon from '@mui/icons-material/Download';
+import matriculaService from '../api/matriculaService';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import matriculaService from '../api/matriculaService';
 
-
-// Estilo para el Modal
-const style = {
+const modalStyle = {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
+    top: '50%', left: '50%',
     transform: 'translate(-50%, -50%)',
-    width: 600,
+    width: { xs: '90%', sm: 600 },
     bgcolor: 'background.paper',
-    border: '2px solid #000',
-    boxShadow: 24,
-    p: 4,
+    borderRadius: 3,
+    boxShadow: '0 6px 25px rgba(0,0,0,0.2)',
+    p: 3
 };
 
 const evaluacionesFiltro = ["TODAS", "1ª Evaluación", "2ª Evaluación", "3ª Evaluación"];
@@ -44,6 +43,7 @@ function HistorialAlumno() {
     const [nuevaNota, setNuevaNota] = useState({});
     const [selectedEvaluacion, setSelectedEvaluacion] = useState('1ª Evaluación');
 
+    // Cargar datos de alumno y matrículas
     const cargarDatos = useCallback(async () => {
         setLoading(true);
         try {
@@ -58,12 +58,10 @@ function HistorialAlumno() {
             setAlumno(alumnoData);
             setMatriculas(matriculasData);
 
-            // Seleccionamos la matrícula más reciente por defecto
             if (matriculasData.length > 0) {
                 const ordenadas = [...matriculasData].sort((a, b) => b.anioAcademico - a.anioAcademico);
                 setMatriculaSeleccionada(ordenadas[0]);
             }
-
         } catch (error) {
             console.error("Error al cargar datos del historial:", error);
             alert("Error al cargar el historial del alumno.");
@@ -73,10 +71,7 @@ function HistorialAlumno() {
         }
     }, [alumnoId, navigate]);
 
-
-    useEffect(() => {
-        cargarDatos();
-    }, [cargarDatos]);
+    useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
     useEffect(() => {
         if (notas.length > 0) {
@@ -97,9 +92,7 @@ function HistorialAlumno() {
                 try {
                     const res = await notaService.obtenerNotasPorMatricula(matriculaSeleccionada.id);
                     const data = Array.isArray(res.data) ? res.data : [];
-
                     const sortedData = data.sort((a, b) => a.asignatura.nombre.localeCompare(b.asignatura.nombre));
-
                     setNotas(sortedData);
                 } catch (err) {
                     console.error("Error al cargar notas:", err);
@@ -111,7 +104,6 @@ function HistorialAlumno() {
         };
         fetchNotas();
     }, [matriculaSeleccionada]);
-
 
     const handleOpen = () => {
         setNuevaNota({
@@ -155,9 +147,7 @@ function HistorialAlumno() {
     async function getBase64FromUrl(url) {
         try {
             const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Error HTTP ${response.status} al cargar la imagen`);
-            }
+            if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
             const blob = await response.blob();
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -171,62 +161,46 @@ function HistorialAlumno() {
         }
     }
 
-
     const handleDescargarPDF = async () => {
-        // 1. Validar que tenemos datos
         if (!alumno || !matriculaSeleccionada || notas.length === 0) {
-            alert("No hay datos suficientes para generar el PDF. Asegúrese de tener una matrícula seleccionada con notas.");
+            alert("No hay datos suficientes para generar el PDF.");
             return;
         }
 
-        // 2. Inicializar el documento PDF
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
 
-        // --- 1. SECCIÓN DE CABECERA (Logo Izquierda, Texto Derecha) ---
-
-        // Logo
         const logoWidth = 30;
         const logoHeight = 40;
         const logoUrl = `${process.env.PUBLIC_URL}/logo-siae.png`;
 
         const logo = await getBase64FromUrl(logoUrl);
-        if (logo) {
-            doc.addImage(logo, 'PNG', margin, margin, logoWidth, logoHeight);
-        }
+        if (logo) doc.addImage(logo, 'PNG', margin, margin, logoWidth, logoHeight);
 
         const textStartX = margin + logoWidth + 10;
         let currentY = margin + 5;
 
-        // Título del Documento
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18).setFont('helvetica', 'bold');
         doc.text("Expediente Académico", textStartX, currentY);
         currentY += 10;
 
-        // Datos del Alumno
         const { anioAcademico, curso, centroEducativo } = matriculaSeleccionada;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(12).setFont('helvetica', 'normal');
         doc.text(`Alumno: ${alumno.nombre} ${alumno.apellidos}`, textStartX, currentY);
         currentY += 6;
         doc.text(`DNI: ${alumno.dni || 'N/A'}`, textStartX, currentY);
         currentY += 8;
 
-        // Datos de la Matrícula
-        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe: ${curso?.nombre || ''} (${anioAcademico})`, textStartX, currentY);
         currentY += 6;
         doc.setFont('helvetica', 'normal');
         doc.text(`Centro: ${centroEducativo?.nombre || getCentroNombre()}`, textStartX, currentY);
 
-        // --- 2. SECCIÓN DE TABLAS ---
         const logoBottom = margin + logoHeight;
         const textBottom = currentY;
-
         let startY = Math.max(logoBottom, textBottom) + 15;
 
         const evaluaciones = ['1ª Evaluación', '2ª Evaluación', '3ª Evaluación'];
@@ -243,21 +217,18 @@ function HistorialAlumno() {
                 startY = margin;
             }
 
-            doc.setFontSize(13);
-            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13).setFont('helvetica', 'bold');
             doc.text(evalName, margin, startY);
             startY += 4;
 
             const tableRows = [];
             let evalTotal = 0;
             let evalCount = 0;
+
             const sortedEvalNotas = [...evalNotas].sort((a, b) => a.asignatura.nombre.localeCompare(b.asignatura.nombre));
 
             sortedEvalNotas.forEach(nota => {
-                const notaData = [
-                    nota.asignatura.nombre,
-                    nota.calificacion.toFixed(2)
-                ];
+                const notaData = [nota.asignatura.nombre, nota.calificacion.toFixed(2)];
                 tableRows.push(notaData);
                 evalTotal += nota.calificacion;
                 evalCount++;
@@ -273,22 +244,15 @@ function HistorialAlumno() {
             autoTable(doc, {
                 head: [tableColumn],
                 body: tableRows,
-                startY: startY,
+                startY,
                 theme: 'grid',
                 headStyles: { fillColor: [22, 160, 133], textColor: [255, 255, 255], fontStyle: 'bold' },
-                columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 30, halign: 'right' } },
+                columnStyles: { 1: { halign: 'right', cellWidth: 30 } },
                 margin: { left: margin, right: margin },
-                didParseCell: (data) => {
-                    if (data.row.index === tableRows.length - 1) {
-                        data.cell.styles.fontStyle = 'bold';
-                    }
-                }
             });
 
             startY = doc.lastAutoTable.finalY + 15;
         });
-
-        // --- 3. SECCIÓN DE RESUMEN Y PIE ---
 
         if (startY > pageHeight - 50) {
             doc.addPage();
@@ -297,15 +261,12 @@ function HistorialAlumno() {
 
         if (overallCount > 0) {
             const overallAverage = (overallTotal / overallCount).toFixed(2);
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12).setFont('helvetica', 'bold');
             doc.text(`Promedio General: ${overallAverage}`, margin, startY);
         }
 
-        // Pie de página
         const pageCount = doc.internal.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.setTextColor(150);
+        doc.setFontSize(8).setTextColor(150);
 
         for (let i = 1; i <= pageCount; i++) {
             const footerText = `Generado por SIAE App el ${new Date().toLocaleDateString('es-ES')}`;
@@ -313,50 +274,30 @@ function HistorialAlumno() {
             doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - margin + 5, { align: 'right' });
         }
 
-        // 4. Generar y Guardar el PDF
         doc.save(`Expediente_${alumno.apellidos.replace(/ /g, '_')}_${anioAcademico}.pdf`);
     };
 
-    // Filtrar notas según el año seleccionado
     const filteredNotas = notas.filter(n => {
         const yearMatch = selectedYear === '' || n.anioAcademico === selectedYear;
         const evalMatch = selectedEvaluacion === 'TODAS' || n.evaluacion === selectedEvaluacion;
         return yearMatch && evalMatch;
     });
 
-    const handleEvaluacionChange = (event) => {
-        setSelectedEvaluacion(event.target.value);
-    };
+    const handleEvaluacionChange = (event) => setSelectedEvaluacion(event.target.value);
 
-    const getCentroNombre = () => {
-        if (alumno && alumno.matriculas && alumno.matriculas.length > 0) {
-            return alumno.matriculas[0]?.centroEducativo?.nombre || 'Centro no disponible';
-        }
-        return 'Sin centro asociado';
-    }
+    const getCentroNombre = () => alumno?.matriculas?.[0]?.centroEducativo?.nombre || 'Sin centro asociado';
 
     const getCursosDelAlumno = () => {
         if (!alumno || !alumno.matriculas) return [];
         const cursosMap = new Map();
-        alumno.matriculas.forEach(m => {
-            if (m.curso) {
-                cursosMap.set(m.curso.id, m.curso);
-            }
-        });
+        alumno.matriculas.forEach(m => m.curso && cursosMap.set(m.curso.id, m.curso));
         return Array.from(cursosMap.values());
-    }
+    };
 
-
-    if (loading && !alumno) {
-        return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
-    }
-    if (!alumno && !loading) {
-        return <Typography sx={{ mt: 4, textAlign: 'center' }}>No se pudieron cargar los datos del alumno.</Typography>;
-    }
-
+    if (loading && !alumno) return <Box sx={{ textAlign: 'center', mt: 4 }}><CircularProgress /></Box>;
 
     return (
-        <Box>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
             <Toolbar />
             <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
                 <Grid item>
@@ -365,7 +306,7 @@ function HistorialAlumno() {
                     </Button>
                 </Grid>
                 <Grid item xs>
-                    <Typography variant="h4">
+                    <Typography variant="h4" sx={{ fontWeight: 600, color: '#003366' }}>
                         Historial de: {alumno.nombre} {alumno.apellidos}
                     </Typography>
                     <Typography variant="subtitle1" color="textSecondary">
@@ -374,110 +315,111 @@ function HistorialAlumno() {
                 </Grid>
             </Grid>
 
-            {/* Filtro por Año y Botón Registrar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <FormControl sx={{ minWidth: 200 }}>
-                    <InputLabel id="matricula-select-label">Matrícula</InputLabel>
-                    <Select
-                        labelId="matricula-select-label"
-                        value={matriculaSeleccionada ? matriculaSeleccionada.id : ''}
-                        label="Matrícula"
-                        onChange={(e) => {
-                            const seleccionada = matriculas.find(m => m.id === e.target.value);
-                            setMatriculaSeleccionada(seleccionada);
-                        }}
-                        disabled={matriculas.length === 0}
-                    >
-                        {matriculas.map(m => (
-                            <MenuItem key={m.id} value={m.id}>
-                                {m.anioAcademico} - {m.curso?.nombre} ({m.centroEducativo?.nombre})
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: '0 4px 10px rgba(0,0,0,0.08)' }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={4}>
+                        <FormControl fullWidth>
+                            <InputLabel>Matrícula</InputLabel>
+                            <Select
+                                value={matriculaSeleccionada ? matriculaSeleccionada.id : ''}
+                                onChange={(e) => {
+                                    const seleccionada = matriculas.find(m => m.id === e.target.value);
+                                    setMatriculaSeleccionada(seleccionada);
+                                }}
+                                label="Matrícula"
+                            >
+                                {matriculas.map(m => (
+                                    <MenuItem key={m.id} value={m.id}>
+                                        {m.anioAcademico} - {m.curso?.nombre} ({m.centroEducativo?.nombre})
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <FormControl fullWidth>
+                            <InputLabel>Evaluación</InputLabel>
+                            <Select value={selectedEvaluacion} onChange={handleEvaluacionChange} label="Evaluación">
+                                {evaluacionesFiltro.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs />
+                    <Grid item>
+                        <Button
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            onClick={handleDescargarPDF}
+                            sx={{ mr: 2 }}
+                            disabled={notas.length === 0}
+                        >
+                            Descargar PDF
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={handleOpen}
+                            sx={{
+                                background: 'linear-gradient(90deg,#00579b,#00897b)',
+                                '&:hover': { background: 'linear-gradient(90deg,#004b85,#00796b)' }
+                            }}
+                        >
+                            Registrar Nota
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Paper>
 
-                <FormControl sx={{ minWidth: 150 }}>
-                    <InputLabel id="eval-select-label">Evaluación</InputLabel>
-                    <Select
-                        labelId="eval-select-label"
-                        value={selectedEvaluacion}
-                        label="Evaluación"
-                        onChange={handleEvaluacionChange}
-                    >
-                        {evaluacionesFiltro.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
-                    </Select>
-                </FormControl>
+            <AnimatePresence>
+                <motion.div key="tabla" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                    <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ background: 'rgba(0,87,155,0.1)' }}>
+                                    <TableRow>
+                                        <TableCell><strong>Curso</strong></TableCell>
+                                        <TableCell><strong>Asignatura</strong></TableCell>
+                                        <TableCell><strong>Evaluación</strong></TableCell>
+                                        <TableCell><strong>Calificación</strong></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredNotas.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} align="center">No hay notas registradas para este año.</TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredNotas.map((nota) => (
+                                            <TableRow key={nota.id} hover sx={{ '&:hover': { background: 'rgba(0,137,123,0.06)' } }}>
+                                                <TableCell>{nota.curso.nombre}</TableCell>
+                                                <TableCell>{nota.asignatura.nombre}</TableCell>
+                                                <TableCell>{nota.evaluacion}</TableCell>
+                                                <TableCell>{nota.calificacion}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Paper>
+                </motion.div>
+            </AnimatePresence>
 
-                <Box sx={{ flexGrow: 1 }} />
-
-                <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    onClick={handleDescargarPDF}
-                    sx={{ mr: 2 }}
-                    disabled={notas.length === 0}
-                >
-                    Descargar PDF
-                </Button>
-
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpen}>
-                    Registrar Nota
-                </Button>
-            </Box>
-
-            {/* Tabla de Notas */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
-                        <TableRow>
-                            <TableCell>Curso</TableCell>
-                            <TableCell>Asignatura</TableCell>
-                            <TableCell>Evaluación</TableCell>
-                            <TableCell>Calificación</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {filteredNotas.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} align="center">No hay notas registradas para este año.</TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredNotas.map((nota) => (
-                                <TableRow key={nota.id}>
-                                    <TableCell>{nota.curso.nombre}</TableCell>
-                                    <TableCell>{nota.asignatura.nombre}</TableCell>
-                                    <TableCell>{nota.evaluacion}</TableCell>
-                                    <TableCell>{nota.calificacion}</TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-
-            <Modal
-                open={openModal}
-                onClose={handleClose}
-                closeAfterTransition
-                BackdropComponent={Backdrop}
-                BackdropProps={{ timeout: 500 }}
-            >
+            <Modal open={openModal} onClose={handleClose} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 300 }}>
                 <Fade in={openModal}>
-                    <Box sx={style}>
-                        <Typography variant="h6" component="h2">Registrar Nueva Nota para {alumno?.nombre}</Typography>
-                        <NotaForm
-                            nota={nuevaNota}
-                            setNota={setNuevaNota}
-                            cursosDelAlumno={getCursosDelAlumno()}
-                        />
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Box sx={modalStyle}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                            Registrar Nueva Nota para {alumno?.nombre}
+                        </Typography>
+                        <NotaForm nota={nuevaNota} setNota={setNuevaNota} cursosDelAlumno={getCursosDelAlumno()} />
+                        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                             <Button onClick={handleClose}>Cancelar</Button>
-                            <Button onClick={handleSave} variant="contained" sx={{ ml: 1 }}>Guardar</Button>
+                            <Button variant="contained" onClick={handleSave}>Guardar</Button>
                         </Box>
                     </Box>
                 </Fade>
             </Modal>
-        </Box>
+        </motion.div>
     );
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Typography, Box, Toolbar, Grid, Paper, CircularProgress, Alert
+  Typography, Box, Toolbar, Grid, Paper, CircularProgress, Alert, Fade
 } from '@mui/material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -9,137 +9,175 @@ import {
 import { useAuth } from '../context/AuthContext';
 import dashboardService from '../api/dashboardService';
 
+const cardBaseStyle = {
+  p: 3,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: '100%',
+  borderRadius: 3,
+  boxShadow: '0 3px 12px rgba(0,0,0,0.08)',
+  transition: '0.3s all ease',
+  '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.12)' },
+};
+
 const KpiCard = ({ title, value, isLoading }) => (
-  <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
-    <Typography variant="h6" color="textSecondary">{title}</Typography>
-    {isLoading ? <CircularProgress size={30} sx={{ mt: 1 }} /> : (
-      <Typography component="p" variant="h4">
+  <Paper sx={cardBaseStyle}>
+    <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>
+      {title}
+    </Typography>
+    {isLoading ? (
+      <CircularProgress size={30} sx={{ mt: 1 }} />
+    ) : (
+      <Typography variant="h4" color="primary.main" fontWeight={600}>
         {value ?? 'N/A'}
       </Typography>
     )}
   </Paper>
 );
 
+const ChartCard = ({ title, children, isLoading }) => (
+  <Paper sx={{ ...cardBaseStyle, alignItems: 'stretch', minHeight: 420, pb: 2 }}>
+    <Typography variant="h6" gutterBottom sx={{ textAlign: 'center' }}>
+      {title}
+    </Typography>
+    <Box sx={{ flexGrow: 1 }}>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        children
+      )}
+    </Box>
+  </Paper>
+);
+
 const AlumnosPorProvinciaChart = ({ data, isLoading }) => {
   const chartData = data?.map(item => ({ name: item[0], alumnos: item[1] })) || [];
   return (
-    <Paper sx={{ p: 2, height: 400 }}>
-      <Typography variant="h6" gutterBottom>Alumnos por Provincia</Typography>
-      {isLoading ? <CircularProgress /> : (
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis allowDecimals={false} />
-            <RechartsTooltip />
-            <Legend />
-            <Bar dataKey="alumnos" fill="#8884d8" />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </Paper>
+    <ChartCard title="Alumnos por Provincia" isLoading={isLoading}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis allowDecimals={false} />
+          <RechartsTooltip />
+          <Legend />
+          <Bar dataKey="alumnos" fill="#8884d8" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 };
 
 const GradeDistributionChart = ({ data, isLoading }) => {
-  const chartData = data ? [
-    { name: 'Suspensos (<5)', value: data.suspensos || 0, color: '#ff0000' },
-    { name: 'Aprobados (5-7)', value: data.aprobados || 0, color: '#ffff00' },
-    { name: 'Notables (7-9)', value: data.notables || 0, color: '#00ff00' },
-    { name: 'Sobresalientes (>9)', value: data.sobresalientes || 0, color: '#0000ff' }
-  ] : [];
+  let parsedData = { suspensos: 0, aprobados: 0, notables: 0, sobresalientes: 0 };
+
+  if (data) {
+    if (Array.isArray(data)) {
+      const arr = data[0];
+      if (Array.isArray(arr) && arr.length >= 4) {
+        parsedData = {
+          suspensos: arr[0],
+          aprobados: arr[1],
+          notables: arr[2],
+          sobresalientes: arr[3],
+        };
+      }
+    } else {
+      parsedData = data;
+    }
+  }
+
+  const chartData = [
+    { name: 'Suspensos (<5)', value: parsedData.suspensos, color: '#ef5350' },
+    { name: 'Aprobados (5-7)', value: parsedData.aprobados, color: '#ffca28' },
+    { name: 'Notables (7-9)', value: parsedData.notables, color: '#66bb6a' },
+    { name: 'Sobresalientes (>9)', value: parsedData.sobresalientes, color: '#42a5f5' },
+  ];
+  
   return (
-    <Paper sx={{ p: 2, height: 400 }}>
-      <Typography variant="h6" gutterBottom>Distribución de Notas</Typography>
-      {isLoading ? <CircularProgress /> : (
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie dataKey="value" data={chartData} cx="50%" cy="50%" outerRadius={80} label>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <RechartsTooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
-    </Paper>
+    <ChartCard title="Distribución de Notas" isLoading={isLoading}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie dataKey="value" data={chartData} cx="50%" cy="50%" outerRadius={75} label>
+            {chartData.map((entry, i) => (
+              <Cell key={i} fill={entry.color} />
+            ))}
+          </Pie>
+          <RechartsTooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 };
 
 const AsignaturaAvgChart = ({ data, isLoading }) => {
   const chartData = data?.map(item => ({ name: item[0], media: item[1] })) || [];
   return (
-    <Paper sx={{ p: 2, height: 400 }}>
-      <Typography variant="h6" gutterBottom>Media por Asignatura</Typography>
-      {isLoading ? <CircularProgress /> : (
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
-            <YAxis domain={[0, 10]} />
-            <RechartsTooltip />
-            <Legend />
-            <Bar dataKey="media" fill="#82ca9d" />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </Paper>
+    <ChartCard title="Media por Asignatura" isLoading={isLoading}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" angle={-40} textAnchor="end" height={70} />
+          <YAxis domain={[0, 10]} />
+          <RechartsTooltip />
+          <Legend />
+          <Bar dataKey="media" fill="#82ca9d" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 };
 
 const AlumnosPorNivelChart = ({ data, isLoading }) => {
   const chartData = data?.map(item => ({ name: item[0], alumnos: item[1] })) || [];
+  const colors = ['#ff7043', '#7cb342', '#29b6f6', '#ab47bc'];
   return (
-    <Paper sx={{ p: 2, height: 400 }}>
-      <Typography variant="h6" gutterBottom>Alumnos por Nivel Educativo</Typography>
-      {isLoading ? <CircularProgress /> : (
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie dataKey="alumnos" data={chartData} cx="50%" cy="50%" outerRadius={80} label>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={['#ff7300', '#387908', '#ff0000', '#0000ff'][index % 4]} />
-              ))}
-            </Pie>
-            <RechartsTooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
-    </Paper>
+    <ChartCard title="Alumnos por Nivel Educativo" isLoading={isLoading}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
+          <Pie dataKey="alumnos" data={chartData} cx="50%" cy="55%" outerRadius={75} label>
+            {chartData.map((_, i) => (
+              <Cell key={i} fill={colors[i % colors.length]} />
+            ))}
+          </Pie>
+          <RechartsTooltip />
+          <Legend verticalAlign="bottom" align="center" wrapperStyle={{ marginTop: 50 }} />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 };
 
 const CentrosPorTipoChart = ({ data, isLoading }) => {
   const chartData = data?.map(item => ({ name: item[0], centros: item[1] })) || [];
   return (
-    <Paper sx={{ p: 2, height: 400 }}>
-      <Typography variant="h6" gutterBottom>Centros por Tipo</Typography>
-      {isLoading ? <CircularProgress /> : (
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie dataKey="centros" data={chartData} cx="50%" cy="50%" outerRadius={80} label>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={['#8884d8', '#82ca9d'][index % 2]} />
-              ))}
-            </Pie>
-            <RechartsTooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
-    </Paper>
+    <ChartCard title="Centros por Tipo" isLoading={isLoading}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie dataKey="centros" data={chartData} cx="50%" cy="50%" outerRadius={70} label>
+            {chartData.map((_, i) => (
+              <Cell key={i} fill={['#7e57c2', '#26c6da'][i % 2]} />
+            ))}
+          </Pie>
+          <RechartsTooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 };
 
-// --- Componente Principal del Dashboard ---
+// --- Componente Principal ---
 function Dashboard() {
   const { usuario } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
@@ -147,83 +185,84 @@ function Dashboard() {
       setLoading(true);
       setError('');
       try {
-        const response = await dashboardService.getStats(currentYear);
-        setStats(response.data);
+        const res = await dashboardService.getStats(currentYear);
+        setStats(res.data);
       } catch (err) {
-        console.error("Error al cargar estadísticas:", err);
-        setError(err.response?.data?.error || "No se pudieron cargar los datos del dashboard.");
+        console.error(err);
+        setError(err.response?.data?.error || 'Error cargando datos del dashboard.');
       } finally {
         setLoading(false);
       }
     };
-    if (usuario) {
-      fetchStats();
-    }
+    if (usuario) fetchStats();
   }, [usuario, currentYear]);
 
-  if (loading || !usuario) {
+  if (loading || !usuario)
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
-  }
 
-  if (error) {
+  if (error)
     return <Alert severity="error" sx={{ m: 4 }}>{error}</Alert>;
-  }
 
   if (!stats) return null;
 
   return (
-    <Box>
-      <Toolbar />
-      <Typography variant="h4" gutterBottom>
-        Dashboard ({usuario.rol})
-      </Typography>
-
-      {usuario.rol === 'ADMIN' && (
-        <>
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={4}><KpiCard title="Total Alumnos (Año Actual)" value={stats.totalAlumnos} isLoading={loading} /></Grid>
-            <Grid item xs={12} sm={4}><KpiCard title="Total Centros" value={stats.totalCentros} isLoading={loading} /></Grid>
-            <Grid item xs={12} sm={4}><KpiCard title="Total Personal" value={stats.totalPersonal} isLoading={loading} /></Grid>
-          </Grid>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}><AlumnosPorProvinciaChart data={stats.alumnosPorProvincia} isLoading={loading} /></Grid>
-            <Grid item xs={12} md={6}><AlumnosPorNivelChart data={stats.alumnosPorNivelNacional} isLoading={loading} /></Grid>
-            <Grid item xs={12} md={6}><GradeDistributionChart data={stats.distribucionNotasNacional} isLoading={loading} /></Grid>
-            <Grid item xs={12} md={6}><AsignaturaAvgChart data={stats.rendimientoPorAsignatura} isLoading={loading} /></Grid>
-            <Grid item xs={12} md={6}><CentrosPorTipoChart data={stats.centrosPorTipo} isLoading={loading} /></Grid>
-          </Grid>
-        </>
-      )}
-
-      {usuario.rol === 'GESTOR' && (
-        <>
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}><KpiCard title={`Alumnos en ${usuario.centro.nombre}`} value={stats.totalAlumnosCentro} isLoading={loading} /></Grid>
-            <Grid item xs={12} sm={6}><KpiCard title="Personal en el Centro" value={stats.totalPersonalCentro} isLoading={loading} /></Grid>
-          </Grid>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 2, height: 300 }}>
-                <Typography variant="h6">Rendimiento (1ª Ev {currentYear})</Typography>
-                <Typography>Media Centro: {stats.rendimientoCentroPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
-                <Typography>Media Nacional: {stats.rendimientoNacionalPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={6}><AlumnosPorNivelChart data={stats.alumnosPorNivel} isLoading={loading} /> </Grid>
-            <Grid item xs={12} md={6}><GradeDistributionChart data={stats.distribucionNotasCentro} isLoading={loading} /></Grid>
-            <Grid item xs={12} md={6}><AsignaturaAvgChart data={stats.rendimientoPorAsignaturaCentro} isLoading={loading} /></Grid>
-          </Grid>
-        </>
-      )}
-
-      {usuario.rol === 'INVITADO' && (
-        <Typography paragraph>
-          Bienvenido, Invitado. No tienes acceso a estadísticas.
+    <Fade in timeout={600}>
+      <Box sx={{ p: { xs: 2, sm: 4 } }}>
+        <Toolbar />
+        <Typography variant="h4" fontWeight={600} gutterBottom>
+          Dashboard ({usuario.rol})
         </Typography>
-      )}
-    </Box>
+
+        {usuario.rol === 'ADMIN' && (
+          <>
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={4}><KpiCard title="Total Alumnos (Año Actual)" value={stats.totalAlumnos} isLoading={loading} /></Grid>
+              <Grid item xs={12} sm={4}><KpiCard title="Total Centros" value={stats.totalCentros} isLoading={loading} /></Grid>
+              <Grid item xs={12} sm={4}><KpiCard title="Total Personal" value={stats.totalPersonal} isLoading={loading} /></Grid>
+            </Grid>
+
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}><AlumnosPorProvinciaChart data={stats.alumnosPorProvincia} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><AlumnosPorNivelChart data={stats.alumnosPorNivelNacional} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><GradeDistributionChart data={stats.distribucionNotasNacional} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><AsignaturaAvgChart data={stats.rendimientoPorAsignatura} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><CentrosPorTipoChart data={stats.centrosPorTipo} isLoading={loading} /></Grid>
+            </Grid>
+          </>
+        )}
+
+        {usuario.rol === 'GESTOR' && (
+          <>
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6}>
+                <KpiCard title={`Alumnos en ${usuario.centro.nombre}`} value={stats.totalAlumnosCentro} isLoading={loading} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <KpiCard title="Personal en el Centro" value={stats.totalPersonalCentro} isLoading={loading} />
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <ChartCard title={`Rendimiento (1ª Ev ${currentYear})`} isLoading={loading}>
+                  <Typography>Media Centro: {stats.rendimientoCentroPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
+                  <Typography>Media Nacional: {stats.rendimientoNacionalPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
+                </ChartCard>
+              </Grid>
+              <Grid item xs={12} md={6}><AlumnosPorNivelChart data={stats.alumnosPorNivel} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><GradeDistributionChart data={stats.distribucionNotasCentro} isLoading={loading} /></Grid>
+              <Grid item xs={12} md={6}><AsignaturaAvgChart data={stats.rendimientoPorAsignaturaCentro} isLoading={loading} /></Grid>
+            </Grid>
+          </>
+        )}
+
+        {usuario.rol === 'INVITADO' && (
+          <Typography paragraph>
+            Bienvenido, Invitado. No tienes acceso a estadísticas.
+          </Typography>
+        )}
+      </Box>
+    </Fade>
   );
 }
 

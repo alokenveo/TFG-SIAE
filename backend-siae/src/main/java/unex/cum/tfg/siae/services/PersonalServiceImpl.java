@@ -71,7 +71,8 @@ public class PersonalServiceImpl implements PersonalService {
 				Predicate dniPred = cb.like(cb.lower(root.get("dni")), searchLower);
 				Predicate nombrePred = cb.like(cb.lower(root.get("nombre")), searchLower);
 				Predicate apellidosPred = cb.like(cb.lower(root.get("apellidos")), searchLower);
-				predicates.add(cb.or(dniPred, nombrePred, apellidosPred));
+				Predicate centroPredicate = cb.like(cb.lower(root.get("centroEducativo").get("nombre")), searchLower);
+				predicates.add(cb.or(dniPred, nombrePred, apellidosPred, centroPredicate));
 			}
 
 			if (cargo != null && !cargo.isEmpty() && !"TODOS".equals(cargo)) {

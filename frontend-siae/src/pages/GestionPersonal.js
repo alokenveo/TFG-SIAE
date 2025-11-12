@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Typography, Box, Toolbar, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Paper, CircularProgress,
@@ -53,24 +53,24 @@ function GestionPersonal() {
         fetchCargos();
     }, []);
 
-    useEffect(() => {
-        const fetchPersonal = async () => {
-            setLoading(true);
-            try {
-                const response = await personalService.obtenerPersonal(
-                    page, rowsPerPage, debouncedSearch,
-                    filtroCargo !== 'TODOS' ? filtroCargo : null
-                );
-                setPersonal(response.data.content);
-                setTotalElements(response.data.totalElements);
-            } catch (error) {
-                console.error('Error al cargar personal:', error);
-            }
-            setLoading(false);
-        };
-        fetchPersonal();
+    const fetchPersonal = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await personalService.obtenerPersonal(
+                page, rowsPerPage, debouncedSearch,
+                filtroCargo !== 'TODOS' ? filtroCargo : null
+            );
+            setPersonal(response.data.content);
+            setTotalElements(response.data.totalElements);
+        } catch (error) {
+            console.error('Error al cargar personal:', error);
+        }
+        setLoading(false);
     }, [page, rowsPerPage, debouncedSearch, filtroCargo]);
 
+    useEffect(() => {
+        fetchPersonal();
+    }, [fetchPersonal]);
     const handleChangePage = (_, newPage) => setPage(newPage);
     const handleChangeRowsPerPage = (e) => {
         setRowsPerPage(parseInt(e.target.value, 10));
@@ -105,7 +105,7 @@ function GestionPersonal() {
                 setSnackbar({ open: true, message: 'Nuevo personal añadido con éxito.', severity: 'success' });
             }
             handleClose();
-            setPage(0);
+            fetchPersonal();
         } catch (error) {
             console.error('Error al guardar personal:', error);
             setSnackbar({ open: true, message: 'Error al guardar personal.', severity: 'error' });
@@ -117,7 +117,7 @@ function GestionPersonal() {
             try {
                 await personalService.eliminarPersonal(id);
                 setSnackbar({ open: true, message: 'Personal eliminado.', severity: 'info' });
-                setPage(0);
+                fetchPersonal();
             } catch (error) {
                 console.error('Error al eliminar personal:', error);
                 setSnackbar({ open: true, message: 'Error al eliminar.', severity: 'error' });
@@ -158,7 +158,7 @@ function GestionPersonal() {
                     <Grid item xs={12} sm={6}>
                         <TextField
                             fullWidth
-                            label="Buscar por DNI, Nombre o Apellidos"
+                            label="Buscar por DNI, nombre o centro"
                             value={filtroSearch}
                             onChange={(e) => setFiltroSearch(e.target.value)}
                         />
