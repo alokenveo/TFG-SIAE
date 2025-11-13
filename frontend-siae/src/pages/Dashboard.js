@@ -102,7 +102,7 @@ const GradeDistributionChart = ({ data, isLoading }) => {
     <ChartCard title="Distribución de Notas" isLoading={isLoading}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie dataKey="value" data={chartData} cx="50%" cy="50%" outerRadius={75} label>
+          <Pie dataKey="value" data={chartData} cx="50%" cy="50%" outerRadius={75}>
             {chartData.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
             ))}
@@ -140,7 +140,7 @@ const AlumnosPorNivelChart = ({ data, isLoading }) => {
     <ChartCard title="Alumnos por Nivel Educativo" isLoading={isLoading}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
-          <Pie dataKey="alumnos" data={chartData} cx="50%" cy="55%" outerRadius={75} label>
+          <Pie dataKey="alumnos" data={chartData} cx="50%" cy="45%" outerRadius={75}>
             {chartData.map((_, i) => (
               <Cell key={i} fill={colors[i % colors.length]} />
             ))}
@@ -159,7 +159,7 @@ const CentrosPorTipoChart = ({ data, isLoading }) => {
     <ChartCard title="Centros por Tipo" isLoading={isLoading}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie dataKey="centros" data={chartData} cx="50%" cy="50%" outerRadius={70} label>
+          <Pie dataKey="centros" data={chartData} cx="50%" cy="50%" outerRadius={65}>
             {chartData.map((_, i) => (
               <Cell key={i} fill={['#7e57c2', '#26c6da'][i % 2]} />
             ))}

@@ -1,7 +1,7 @@
-from ..siae_ml.data_loader import extraer_datos
-from ..siae_ml.features import prepare_features
-from ..siae_ml.predictor import predecir_por_alumno_asignaturas, predicciones_agregadas, predecir_rendimiento_por_asignatura
-from ..siae_ml.model_trainer import load_models
+from siae_ml.data_loader import extraer_datos
+from siae_ml.features import prepare_features
+from siae_ml.predictor import predecir_por_alumno_asignaturas, predicciones_agregadas, predecir_rendimiento_por_asignatura
+from siae_ml.model_trainer import load_models
 
 if __name__ == "__main__":
     print("🚀 Iniciando predicción en ML_SIAE...")

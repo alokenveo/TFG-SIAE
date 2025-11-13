@@ -52,14 +52,17 @@ public class IaController {
 
 			if ("ADMIN".equals(usuario.getRol())) {
 				Map<String, Object> statsProvincia = iaService.getPrediccionAgregada(anioAcademico, "provincia");
-				
-				Map<String, Object> statsCentro = iaService.getPrediccionAgregada(anioAcademico, "centro");
+
+				Map<String, Object> statsCentro = iaService.getPrediccionAgregada(anioAcademico, "centro_educativo_id");
 				if (statsCentro.containsKey("agregados")) {
 					statsProvincia.put("agregadosPorCentro", statsCentro.get("agregados"));
 				}
+				if (statsCentro.containsKey("tendencias")) {
+					statsProvincia.put("tendenciasPorCentro", statsCentro.get("tendencias"));
+				}
 
 				return ResponseEntity.ok(statsProvincia);
-				
+
 			} else if ("GESTOR".equals(usuario.getRol())) {
 				GestorInstitucional gestor = (GestorInstitucional) usuario;
 				Long centroId = gestor.getCentro().getId();
