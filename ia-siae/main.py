@@ -4,16 +4,17 @@ from pydantic import BaseModel
 from typing import List
 import numpy as np
 import time
-from funciones.data_loader import extraer_datos
-from funciones.features import prepare_features
-from funciones.model_trainer import load_models
-from funciones.predictor import (
+from siae_ml.data_loader import extraer_datos
+from siae_ml.features import prepare_features
+from siae_ml.model_trainer import load_models
+from siae_ml.predictor import (
     predecir_por_alumno_asignaturas,
     predicciones_agregadas,
     predecir_rendimiento_por_asignatura,
 )
 from typing import List, Literal
 from functools import lru_cache
+from joblib import Memory
 from concurrent.futures import ThreadPoolExecutor
 
 # ===============================
@@ -45,7 +46,9 @@ def limpiar_numpy(data):
         return data
 
 
-@lru_cache(maxsize=10)
+memory = Memory(location="cache", verbose=0)
+
+@memory.cache
 def predecir_cacheado(ids_tuple):
     ids = list(ids_tuple)
 
@@ -71,8 +74,7 @@ def predecir_cacheado(ids_tuple):
 
     return resultados
 
-
-@lru_cache(maxsize=4)
+@memory.cache
 def predicciones_agregadas_cacheadas(nivel: str):
     print(f"🔁 Calculando predicciones agregadas para nivel: {nivel}")
     preds = predicciones_agregadas(df, modelos, nivel=nivel)
@@ -83,7 +85,7 @@ def predicciones_agregadas_cacheadas(nivel: str):
         "disparidades": preds["disparidades"].to_dict(orient="records"),
     }
 
-@lru_cache(maxsize=1)
+@memory.cache
 def rendimiento_cacheado():
     print("🔁 Calculando predicción de rendimiento por asignatura...")
     df_pred_rend = predecir_rendimiento_por_asignatura(df, modelos["susp_asig"])

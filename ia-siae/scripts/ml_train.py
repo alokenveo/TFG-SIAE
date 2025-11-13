@@ -1,6 +1,6 @@
-from funciones.data_loader import extraer_datos
-from funciones.features import prepare_features
-from funciones.model_trainer import train_models_extended, save_models
+from ..siae_ml.data_loader import extraer_datos
+from ..siae_ml.features import prepare_features
+from ..siae_ml.model_trainer import train_models_extended, save_models
 
 if __name__ == "__main__":
     print("🚀 Iniciando carga y entrenamiento de datos en ML_SIAE...")

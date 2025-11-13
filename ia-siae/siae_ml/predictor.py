@@ -277,19 +277,6 @@ def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
     # 4️⃣ Tendencias temporales: forecasting de suspensos por año
     tendencias = []
     for entidad, grupo in df_pred.groupby(nivel):
-        serie = grupo.groupby("anio_academico")["suspenso"].mean()
-        if len(serie) >= 3:
-            try:
-                model = ARIMA(serie, order=(1, 1, 0))
-                fit = model.fit()
-                forecast = fit.forecast(steps=1)[0] * 100
-                tendencias.append((entidad, serie.index.max() + 1, forecast))
-            except Exception:
-                continue
-
-    """
-    tendencias = []
-    for entidad, grupo in df_pred.groupby(nivel):
         serie = grupo.groupby('anio_academico')['suspenso'].mean().reset_index()
         if len(serie) >= 2:
             X = serie[['anio_academico']]
@@ -297,7 +284,6 @@ def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
             model = LinearRegression().fit(X, y)
             pred = model.predict([[serie['anio_academico'].max() + 1]])[0] * 100
             tendencias.append((entidad, serie['anio_academico'].max() + 1, pred))
-    """
 
     tendencias_df = pd.DataFrame(
         tendencias, columns=[nivel, "anio_pred", "tasa_suspensos_forecast"]

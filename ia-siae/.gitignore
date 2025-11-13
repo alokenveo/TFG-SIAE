@@ -1,3 +1,5 @@
-encoders.pkl
-modelos.pkl
+models/*.pkl
 __pycache__/
+cache/
+*.pyc
+*.log

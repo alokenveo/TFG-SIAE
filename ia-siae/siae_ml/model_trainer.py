@@ -145,10 +145,10 @@ def train_models_extended(df, encoders):
 
 
 def save_models(modelos, encoders):
-    joblib.dump(modelos, "modelos.pkl")
-    joblib.dump(encoders, "encoders.pkl")
+    joblib.dump(modelos, "models/modelos.pkl", compress=3)
+    joblib.dump(encoders, "models/encoders.pkl", compress=3)
 
 def load_models():
-    modelos = joblib.load("modelos.pkl")
-    encoders = joblib.load("encoders.pkl")
+    modelos = joblib.load("models/modelos.pkl")
+    encoders = joblib.load("models/encoders.pkl")
     return modelos, encoders
