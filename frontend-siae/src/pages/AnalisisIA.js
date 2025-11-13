@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Typography, Box, Toolbar, Grid, Paper, CircularProgress, Alert,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Tooltip, Collapse, IconButton, Chip
+  Typography, Box, Toolbar, Grid, Paper, CircularProgress, Alert,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Tooltip, Collapse, IconButton, Chip
 } from '@mui/material';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-    Legend, ResponsiveContainer, LineChart, Line
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  Legend, ResponsiveContainer, Line
 } from 'recharts';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -99,76 +99,91 @@ const RiesgoAlumnosTable = ({ data, isLoading, onAlumnoClick }) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.map((alumno) => (
-                <React.Fragment key={alumno.alumno_id}>
-                  <TableRow
-                    sx={{ cursor: 'pointer', '&:hover': { background: 'rgba(0,0,0,0.04)' } }}
-                    onClick={() => onAlumnoClick(alumno.alumno_id)}
-                  >
-                    <TableCell>{`${alumno.nombre} ${alumno.apellidos}`}</TableCell>
-                    <TableCell>{alumno.dni}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={`${(alumno.prob_repetir * 100).toFixed(1)}%`}
-                        color={alumno.prob_repetir > 0.5 ? 'error' : 'success'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={`${(alumno.prob_abandono * 100).toFixed(1)}%`}
-                        color={alumno.prob_abandono > 0.3 ? 'warning' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => { e.stopPropagation(); handleExpand(alumno.alumno_id); }}
-                      >
-                        <ExpandMoreIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={5} sx={{ p: 0 }}>
-                      <Collapse in={expanded[alumno.alumno_id]}>
-                        <Box sx={{ p: 2, background: 'rgba(0,0,0,0.02)' }}>
-                          <Typography variant="subtitle2" gutterBottom>Recomendaciones Globales</Typography>
-                          <ul>
-                            {alumno.recomendaciones_globales.map((rec, idx) => <li key={idx}>{rec}</li>)}
-                          </ul>
-                          <Typography variant="subtitle2" gutterBottom mt={2}>Asignaturas</Typography>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Asignatura</TableCell>
-                                <TableCell>Prob. Suspender</TableCell>
-                                <TableCell>Nota Esperada</TableCell>
-                                <TableCell>Recomendaciones</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {alumno.asignaturas.map((asig) => (
-                                <TableRow key={asig.asignatura_id}>
-                                  <TableCell>{asig.asignatura_nombre}</TableCell>
-                                  <TableCell>{(asig.prob_suspender * 100).toFixed(1)}%</TableCell>
-                                  <TableCell>{asig.nota_esperada.toFixed(1)}</TableCell>
-                                  <TableCell>
-                                    <ul>
-                                      {asig.recomendaciones.map((rec, idx) => <li key={idx}>{rec}</li>)}
-                                    </ul>
-                                  </TableCell>
+              {data
+                ?.filter(alumno => alumno.asignaturas?.some(asig => asig.prob_suspender > 0.5)) // 🔹 solo alumnos en riesgo
+                .map((alumno) => (
+                  <React.Fragment key={alumno.alumno_id}>
+                    <TableRow
+                      sx={{ cursor: 'pointer', '&:hover': { background: 'rgba(0,0,0,0.04)' } }}
+                      onClick={() => onAlumnoClick(alumno.alumno_id)}
+                    >
+                      <TableCell>{`${alumno.nombre} ${alumno.apellidos}`}</TableCell>
+                      <TableCell>{alumno.dni}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={`${(alumno.prob_repetir * 100).toFixed(1)}%`}
+                          color={alumno.prob_repetir > 0.5 ? 'error' : 'success'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={`${(alumno.prob_abandono * 100).toFixed(1)}%`}
+                          color={alumno.prob_abandono > 0.3 ? 'warning' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); handleExpand(alumno.alumno_id); }}
+                        >
+                          <ExpandMoreIcon
+                            sx={{
+                              transform: expanded[alumno.alumno_id]
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                              transition: 'transform 0.2s'
+                            }}
+                          />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ p: 0 }}>
+                        <Collapse in={expanded[alumno.alumno_id]}>
+                          <Box sx={{ p: 2, background: 'rgba(0,0,0,0.02)' }}>
+                            <Typography variant="subtitle2" gutterBottom>Recomendaciones Globales</Typography>
+                            <ul>
+                              {alumno.recomendaciones_globales.map((rec, idx) => <li key={idx}>{rec}</li>)}
+                            </ul>
+
+                            <Typography variant="subtitle2" gutterBottom mt={2}>Asignaturas en riesgo</Typography>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Asignatura</TableCell>
+                                  <TableCell>Prob. Suspender</TableCell>
+                                  <TableCell>Nota Esperada</TableCell>
+                                  <TableCell>Recomendaciones</TableCell>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))}
+                              </TableHead>
+                              <TableBody>
+                                {alumno.asignaturas
+                                  ?.filter(asig => asig.prob_suspender > 0.5) // 🔹 solo asignaturas en riesgo
+                                  .map((asig) => (
+                                    <TableRow key={asig.asignatura_id}>
+                                      <TableCell>{asig.asignatura_nombre}</TableCell>
+                                      <TableCell sx={{ color: 'red' }}>
+                                        {(asig.prob_suspender * 100).toFixed(1)}%
+                                      </TableCell>
+                                      <TableCell>{asig.nota_esperada.toFixed(1)}</TableCell>
+                                      <TableCell>
+                                        <ul>
+                                          {asig.recomendaciones.map((rec, idx) => <li key={idx}>{rec}</li>)}
+                                        </ul>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))}
             </TableBody>
           </Table>
         </TableContainer>

@@ -1,6 +1,7 @@
 import numpy as np
+import time
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_squared_error, accuracy_score, classification_report
 from sklearn.calibration import CalibratedClassifierCV
 import joblib
@@ -11,6 +12,8 @@ import joblib
 # ENTRENAR MODELOS EXTENDIDOS
 # ----------------------------
 def train_models_extended(df, encoders):
+    tiempo_inicio = time.perf_counter()
+    
     # FILTRO filas con valores necesarios
     df_model = df.dropna(subset=["nota_previa", "calificacion", "sexo_enc"])
 
@@ -45,12 +48,10 @@ def train_models_extended(df, encoders):
 
     model_nota_asig = RandomForestRegressor(n_estimators=150, random_state=42)
     model_nota_asig.fit(X_train_a, y_n_train)
-    
+
     print("RMSE nota:", np.sqrt(mean_squared_error(y_n_test, model_nota_asig.predict(X_test_a))))
     print("Acc suspenso:", accuracy_score(y_s_test, model_susp_asig.predict(X_test_a)))
-    # print(classification_report(y_s_test, model_susp_asig.predict(X_test_a)))
-
-
+    
     # MODELO repetir (nivel alumno-año): agregamos features por alumno-año
     agg = (
         df_model.groupby(["alumno_id", "anio_academico"])
@@ -92,6 +93,7 @@ def train_models_extended(df, encoders):
     )
     model_rep = RandomForestClassifier(n_estimators=150, random_state=42)
     model_rep.fit(Xr_train, yr_train)
+    print("Acc repite:", accuracy_score(yr_test, model_rep.predict(Xr_test)))
 
     # MODELO abandono (solo bachillerato)
     df_bach = df_model[df_model["nivel_id"] == 4].copy()
@@ -130,6 +132,7 @@ def train_models_extended(df, encoders):
             )
             model_ab = RandomForestClassifier(n_estimators=150, random_state=42)
             model_ab.fit(Xab_train, yab_train)
+            print("Acc abandono:", accuracy_score(yab_test, model_ab.predict(Xab_test)))
         else:
             model_ab = None  # no hay suficiente variabilidad
     else:
@@ -141,12 +144,18 @@ def train_models_extended(df, encoders):
         "rep": model_rep,
         "ab": model_ab,
     }
+    # Añadir el tiempo que se ha tardado en minutos
+    tiempo_total = time.perf_counter() - tiempo_inicio
+    print(
+        f"✅ Entenamiendo de modelos listo en {tiempo_total / 60:.2f} minutos."
+    )
     return models
 
 
 def save_models(modelos, encoders):
     joblib.dump(modelos, "models/modelos.pkl", compress=3)
     joblib.dump(encoders, "models/encoders.pkl", compress=3)
+
 
 def load_models():
     modelos = joblib.load("models/modelos.pkl")

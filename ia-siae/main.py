@@ -13,7 +13,6 @@ from siae_ml.predictor import (
     predecir_rendimiento_por_asignatura,
 )
 from typing import List, Literal
-from functools import lru_cache
 from joblib import Memory
 from concurrent.futures import ThreadPoolExecutor
 

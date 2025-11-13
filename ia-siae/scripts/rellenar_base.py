@@ -84,10 +84,21 @@ def centro_ofrece_nivel(cursor, centro_id, nivel_id):
 
 # Mapa de cursos a niveles (basado en el esquema proporcionado)
 curso_a_nivel = {
-    1: 1, 2: 1, 3: 1,  # Infantil
-    4: 2, 5: 2, 6: 2, 7: 2, 8: 2, 9: 2,  # Primaria
-    10: 3, 11: 3, 12: 3, 13: 3,  # ESO
-    14: 4, 15: 4  # Bachillerato
+    1: 1,
+    2: 1,
+    3: 1,  # Infantil
+    4: 2,
+    5: 2,
+    6: 2,
+    7: 2,
+    8: 2,
+    9: 2,  # Primaria
+    10: 3,
+    11: 3,
+    12: 3,
+    13: 3,  # ESO
+    14: 4,
+    15: 4,  # Bachillerato
 }
 
 
@@ -97,8 +108,8 @@ curso_a_nivel = {
 def generar_alumnos(cursor, conn, num_alumnos=500):
     for _ in range(num_alumnos):
         apellido = f"{faker.last_name()} {faker.last_name()}"
-        sexo = random.choice(['MASCULINO', 'FEMENINO'])
-        if sexo == 'MASCULINO':
+        sexo = random.choice(["MASCULINO", "FEMENINO"])
+        if sexo == "MASCULINO":
             nombre = faker.first_name_male()
         else:
             nombre = faker.first_name_female()
@@ -116,17 +127,24 @@ def generar_alumnos(cursor, conn, num_alumnos=500):
         # Obtener centros que ofrecen el nivel inicial
         posibles_centros = get_centros_por_nivel(cursor, nivel_inicial)
         if not posibles_centros:
-            print(f"Advertencia: No hay centros que ofrezcan el nivel {nivel_inicial}. Saltando alumno.")
+            print(
+                f"Advertencia: No hay centros que ofrezcan el nivel {nivel_inicial}. Saltando alumno."
+            )
             continue
         centro_id = random.choice(posibles_centros)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO alumno (dni, apellidos, fecha_nacimiento, nombre, sexo, centro_educativo_id)
             VALUES (%s, %s, %s, %s, %s, %s)
-        """, (dni, apellido, fecha_nac, nombre, sexo, centro_id))
+        """,
+            (dni, apellido, fecha_nac, nombre, sexo, centro_id),
+        )
         conn.commit()
 
-    print(f"{num_alumnos} registros de alumnos generados exitosamente (o menos si algunos se saltaron).")
+    print(
+        f"{num_alumnos} registros de alumnos generados exitosamente (o menos si algunos se saltaron)."
+    )
 
 
 # ----------------------------
@@ -146,58 +164,108 @@ def simular_flujo(cursor, conn):
             continue  # alumno no válido o fuera del rango
 
         performance = random.choices(
-            ['bueno', 'medio', 'malo'],
-            weights=[0.30, 0.45, 0.25],
-            k=1
+            ["bueno", "medio", "malo"], weights=[0.35, 0.45, 0.20], k=1
         )[0]
 
-        abandono_prob = 0.2 if performance == 'malo' else 0.1 if performance == 'medio' else 0.05
+        abandono_prob = (
+            0.2 if performance == "malo" else 0.1 if performance == "medio" else 0.05
+        )
+
+        repeticiones_en_curso = {}  # Trackear repeticiones por curso para este alumno
 
         for anio in anios:
-            # Solo permitir abandono si el alumno está en Bachillerato
-            if curso_actual >= 14 and random.random() < abandono_prob:
-                break
+            # Calcular edad actual
+            edad = anio - fecha_nac.year
 
             # Obtener nivel del curso actual
             nivel_actual = curso_a_nivel.get(curso_actual)
             if nivel_actual is None:
                 break
 
+            # Graduación forzada o promoción en casos específicos
+            if nivel_actual == 4:  # Bachillerato
+                # Edad esperada aproximada: 16 para 1º Bach (curso 14), 17 para 2º (15)
+                edad_esperada = 15 + (curso_actual - 13)  # 16 para 14, 17 para 15
+                if edad >= edad_esperada + 3:
+                    if curso_actual == 15:
+                        break  # Graduado forzado
+                    else:
+                        curso_actual += 1  # Promociona a 2º Bach
+                        continue
+
+            # Permitir abandono a partir de 3º ESO si edad >=16
+            if curso_actual == 12 and edad >= 16 and random.random() < abandono_prob:
+                break
+
+            # Solo permitir abandono si el alumno está en Bachillerato (lógica original)
+            if curso_actual >= 14 and random.random() < abandono_prob:
+                break
+
             # Verificar si el centro actual ofrece el nivel; si no, cambiar a uno que sí
             if not centro_ofrece_nivel(cursor, centro_actual, nivel_actual):
                 posibles_centros = get_centros_por_nivel(cursor, nivel_actual)
                 if not posibles_centros:
-                    print(f"Advertencia: No hay centros para nivel {nivel_actual}. Saltando matrícula para alumno {alumno_id} en {anio}.")
+                    print(
+                        f"Advertencia: No hay centros para nivel {nivel_actual}. Saltando matrícula para alumno {alumno_id} en {anio}."
+                    )
                     break
                 centro_actual = random.choice(posibles_centros)
 
             # Crear matrícula con el centro (posiblemente cambiado)
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO matricula (anio_academico, alumno_id, centro_educativo_id, curso_id)
                 VALUES (%s, %s, %s, %s)
-            """, (anio, alumno_id, centro_actual, curso_actual))
+            """,
+                (anio, alumno_id, centro_actual, curso_actual),
+            )
             matricula_id = cursor.lastrowid
 
             # Generar notas
             asignaturas = get_asignaturas_por_curso(cursor, curso_actual)
             media_total = 0
 
+            # Efecto intervención: si repitió el año anterior (basado en si no avanzó), suma +1 a mean
+            intervencion_bonus = (
+                1 if repeticiones_en_curso.get(curso_actual, 0) > 0 else 0
+            )
+
             for eval in evaluaciones:
                 for asig_id in asignaturas:
-                    mean = 8 if performance == 'bueno' else 6 if performance == 'medio' else 4
-                    nota = random.normalvariate(mean, 1.5)
+                    mean = (
+                        8
+                        if performance == "bueno"
+                        else 6 if performance == "medio" else 4
+                    ) + intervencion_bonus
+                    nota = random.normalvariate(mean, 2.0)
                     nota = max(0, min(10, round(nota, 1)))
                     media_total += nota
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO nota (calificacion, alumno_id, asignatura_id, curso_id, evaluacion, anio_academico)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (nota, alumno_id, asig_id, curso_actual, eval, anio))
+                    """,
+                        (nota, alumno_id, asig_id, curso_actual, eval, anio),
+                    )
 
             # Calcular media y decidir si avanza o repite
             num_notas = len(asignaturas) * len(evaluaciones)
             if num_notas > 0:
                 media_total /= num_notas
+
+            # Trackear repeticiones
+            repeticiones_en_curso[curso_actual] = (
+                repeticiones_en_curso.get(curso_actual, 0) + 1
+            )
+
+            # Límites de repetición por nivel
+            max_rep = 2 if nivel_actual in [1, 2] else 3 if nivel_actual == 3 else 2
+            if repeticiones_en_curso[curso_actual] > max_rep:
+                curso_actual += 1  # Forzar promoción
+                if curso_actual > 15:
+                    break  # Graduado
+                continue
 
             if media_total > 5:
                 curso_actual += 1
@@ -205,6 +273,12 @@ def simular_flujo(cursor, conn):
                     break  # Graduado
             else:
                 abandono_prob += 0.05
+                # Variabilidad en performance: 15% chance de mejorar si repite
+                if random.random() < 0.15:
+                    if performance == "malo":
+                        performance = "medio"
+                    elif performance == "medio":
+                        performance = "bueno"
 
         conn.commit()
 
@@ -225,14 +299,17 @@ def generar_personal(cursor, conn, num_personal=100):
     for _ in range(num_personal):
         nombre = faker.first_name()
         apellidos = f"{faker.last_name()} {faker.last_name()}"
-        cargo = random.choice(['Docente', 'Administrativo', 'Coordinador', 'Director'])
+        cargo = random.choice(["Docente", "Administrativo", "Coordinador", "Director"])
         centro_id = random.choice(centros)
         dni = generar_dni()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO personal (apellidos, cargo, nombre, centro_educativo_id, dni )
             VALUES (%s, %s, %s, %s, %s)
-        """, (apellidos, cargo, nombre, centro_id, dni))
+        """,
+            (apellidos, cargo, nombre, centro_id, dni),
+        )
         conn.commit()
 
     print(f"{num_personal} registros de personal generados exitosamente.")
