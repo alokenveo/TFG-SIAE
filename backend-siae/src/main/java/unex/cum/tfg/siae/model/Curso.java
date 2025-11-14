@@ -31,7 +31,7 @@ public class Curso {
 	public Curso() {
 	}
 
-	public Curso(int orden, NivelEducativo nivel, CentroEducativo centro) {
+	public Curso(int orden, NivelEducativo nivel) {
 		this.orden = orden;
 		this.nivel = nivel;
 		this.nombre = orden + "º de " + nivel.getNombre();
