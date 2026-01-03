@@ -51,7 +51,7 @@ memory = Memory(location="cache", verbose=0)
 def predecir_cacheado(ids_tuple):
     ids = list(ids_tuple)
 
-    # Vectorización: procesar todos los alumnos en un único batch
+    # Vectorización: procesar todos los alumnos en un único batch.
     df_filtrado = df[df["alumno_id"].isin(ids)]
     if df_filtrado.empty:
         return []
