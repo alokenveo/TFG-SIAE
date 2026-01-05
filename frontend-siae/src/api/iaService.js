@@ -12,9 +12,14 @@ const getRendimiento = () => {
     return apiClient.get('/ia/rendimiento');
 };
 
+const recalcularPredicciones = () => {
+    return apiClient.post('/ia/recalcular');
+};
+
 const iaService = {
     getIaStats,
     getRendimiento,
+    recalcularPredicciones
 };
 
 export default iaService;

@@ -105,7 +105,7 @@ curso_a_nivel = {
 # ----------------------------
 # GENERAR ALUMNOS
 # ----------------------------
-def generar_alumnos(cursor, conn, num_alumnos=500):
+def generar_alumnos(cursor, conn, num_alumnos=100):
     for _ in range(num_alumnos):
         apellido = f"{faker.last_name()} {faker.last_name()}"
         sexo = random.choice(["MASCULINO", "FEMENINO"])
@@ -322,7 +322,7 @@ if __name__ == "__main__":
     conn = conectar_db()
     cursor = conn.cursor()
 
-    generar_alumnos(cursor, conn, num_alumnos=500)
+    generar_alumnos(cursor, conn, num_alumnos=100)
     simular_flujo(cursor, conn)
     generar_personal(cursor, conn, num_personal=100)
 

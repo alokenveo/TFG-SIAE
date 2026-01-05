@@ -71,12 +71,12 @@ public class SecurityConfig {
 						.requestMatchers("/api/auth/login").permitAll()
 						.requestMatchers("/api/usuarios/registrar-invitado").permitAll()
 						.requestMatchers("/api/auth/request-reset").permitAll()
-						.requestMatchers("/api/auth/reset-password").permitAll()
-						.requestMatchers("/api/health").permitAll()
+						.requestMatchers("/api/auth/reset-password").permitAll().requestMatchers("/api/health")
+						.permitAll()
 
 						// Endpoints ADMIN
 						.requestMatchers("/api/usuarios/**").hasRole("ADMIN").requestMatchers("/api/centros/**")
-						.hasRole("ADMIN")
+						.hasRole("ADMIN").requestMatchers(HttpMethod.POST, "/api/ia/recalcular").hasRole("ADMIN")
 
 						// Endpoints ADMIN y GESTOR
 						.requestMatchers("/api/alumnos/**").hasAnyRole("ADMIN", "GESTOR")
@@ -86,8 +86,8 @@ public class SecurityConfig {
 
 						// Endpoints Autenticados (consulta)
 						.requestMatchers("/api/oferta-educativa/**").authenticated()
-						.requestMatchers("/api/dashboard/**").authenticated()
-						.requestMatchers("/api/ia/**").authenticated()
+						.requestMatchers("/api/dashboard/**").authenticated().requestMatchers("/api/ia/**")
+						.authenticated()
 
 						// Cualquier otra petición requiere autenticación
 						.anyRequest().authenticated())

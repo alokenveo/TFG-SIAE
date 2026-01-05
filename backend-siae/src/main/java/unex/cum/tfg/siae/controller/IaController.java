@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -88,4 +89,15 @@ public class IaController {
 			return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
 		}
 	}
+	
+	@PostMapping("/recalcular")
+    public ResponseEntity<?> recalcularPredicciones() {
+        // 1. Verificar seguridad extra si quieres (aunque SecurityConfig ya lo hace)
+        // getUsuarioActual()... check rol...
+        
+        // 2. Llamar al servicio
+        String resultado = iaService.ejecutarRecalculoIA();
+        
+        return ResponseEntity.ok(Map.of("mensaje", resultado));
+    }
 }

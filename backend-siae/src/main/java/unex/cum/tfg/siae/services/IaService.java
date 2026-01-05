@@ -9,4 +9,6 @@ public interface IaService {
 	Map<String, Object> getPrediccionAgregada(int anioAcademico, String nivel);
 
 	List<Map<String, Object>> getRendimientoPorAsignatura();
+	
+	String ejecutarRecalculoIA();
 }

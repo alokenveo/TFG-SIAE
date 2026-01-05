@@ -1,0 +1,115 @@
+package unex.cum.tfg.siae.model;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "prediccion_alumno", uniqueConstraints = {
+		@UniqueConstraint(columnNames = { "alumno_id", "anio_academico" }) })
+public class PrediccionAlumno {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@ManyToOne
+	@JoinColumn(name = "alumno_id", nullable = false)
+	private Alumno alumno;
+
+	@Column(name = "anio_academico", nullable = false)
+	private Integer anioAcademico;
+
+	@Column(name = "riesgo_global")
+	private Double riesgoGlobal;
+
+	@Column(name = "n_suspensos_predichos")
+	private Integer nSuspensosPredichos;
+
+	@Column(name = "detalle_json", columnDefinition = "json")
+	private String detalleJson;
+
+	@Column(name = "fecha_prediccion")
+	private LocalDateTime fechaPrediccion;
+
+	// ================================
+	// CONSTRUCTORES
+	// ================================
+	public PrediccionAlumno() {
+	}
+
+	public PrediccionAlumno(Alumno alumno, Integer anioAcademico, Double riesgoGlobal, Integer nSuspensosPredichos,
+			String detalleJson) {
+		this.alumno = alumno;
+		this.anioAcademico = anioAcademico;
+		this.riesgoGlobal = riesgoGlobal;
+		this.nSuspensosPredichos = nSuspensosPredichos;
+		this.detalleJson = detalleJson;
+		this.fechaPrediccion = LocalDateTime.now();
+	}
+
+	// ================================
+	// GETTERS Y SETTERS
+	// ================================
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Alumno getAlumno() {
+		return alumno;
+	}
+
+	public void setAlumno(Alumno alumno) {
+		this.alumno = alumno;
+	}
+
+	public Integer getAnioAcademico() {
+		return anioAcademico;
+	}
+
+	public void setAnioAcademico(Integer anioAcademico) {
+		this.anioAcademico = anioAcademico;
+	}
+
+	public Double getRiesgoGlobal() {
+		return riesgoGlobal;
+	}
+
+	public void setRiesgoGlobal(Double riesgoGlobal) {
+		this.riesgoGlobal = riesgoGlobal;
+	}
+
+	public Integer getnSuspensosPredichos() {
+		return nSuspensosPredichos;
+	}
+
+	public void setnSuspensosPredichos(Integer nSuspensosPredichos) {
+		this.nSuspensosPredichos = nSuspensosPredichos;
+	}
+
+	public String getDetalleJson() {
+		return detalleJson;
+	}
+
+	public void setDetalleJson(String detalleJson) {
+		this.detalleJson = detalleJson;
+	}
+
+	public LocalDateTime getFechaPrediccion() {
+		return fechaPrediccion;
+	}
+
+	public void setFechaPrediccion(LocalDateTime fechaPrediccion) {
+		this.fechaPrediccion = fechaPrediccion;
+	}
+
+	@Override
+	public String toString() {
+		return "PrediccionAlumno [id=" + id + ", alumno=" + alumno + ", anioAcademico=" + anioAcademico
+				+ ", riesgoGlobal=" + riesgoGlobal + ", nSuspensosPredichos=" + nSuspensosPredichos + ", detalleJson="
+				+ detalleJson + ", fechaPrediccion=" + fechaPrediccion + "]";
+	}
+}

@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from siae_ml.data_loader import extraer_datos
 from siae_ml.features import prepare_features
 from siae_ml.model_trainer import train_models_extended, save_models

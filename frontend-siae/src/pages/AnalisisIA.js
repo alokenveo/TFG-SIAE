@@ -15,6 +15,8 @@ import iaService from '../api/iaService';
 import InfoIcon from '@mui/icons-material/Info';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SchoolIcon from '@mui/icons-material/School';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useNavigate } from 'react-router-dom';
 
 // --- Estilo base compartido con Dashboard ---
@@ -358,6 +360,10 @@ function AnalisisIA() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Estados para el botón de recalcular
+  const [recalculando, setRecalculando] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
   const [scopeTasa, setScopeTasa] = useState('provincia');
   const [scopeImpacto, setScopeImpacto] = useState('provincia');
   const [scopeTendencias, setScopeTendencias] = useState('provincia');
@@ -387,6 +393,33 @@ function AnalisisIA() {
     if (usuario) fetchData();
   }, [usuario, currentYear]);
 
+  const handleRecalcular = async () => {
+    if (!window.confirm("¿Seguro que quieres lanzar el re-entrenamiento? Esto puede tardar unos minutos en segundo plano.")) return;
+
+    setRecalculando(true);
+    try {
+      // 1. Llamamos al Backend Java -> Python
+      const res = await iaService.recalcularPredicciones();
+
+      // 2. Feedback positivo
+      setSnackbar({
+        open: true,
+        message: '🚀 ' + (res.data.mensaje || "Proceso iniciado correctamente"),
+        severity: 'success'
+      });
+
+    } catch (err) {
+      console.error(err);
+      setSnackbar({
+        open: true,
+        message: 'Error al iniciar el proceso: ' + (err.response?.data?.error || err.message),
+        severity: 'error'
+      });
+    } finally {
+      setRecalculando(false);
+    }
+  };
+
   const handleAlumnoClick = (alumnoId) => {
     navigate(`/alumnos/${alumnoId}/historial`);
   };
@@ -401,9 +434,24 @@ function AnalisisIA() {
   return (
     <Box sx={{ p: { xs: 2, sm: 4 } }}>
       <Toolbar />
-      <Typography variant="h4" fontWeight={600} gutterBottom>
-        Análisis Predictivo (IA)
-      </Typography>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" fontWeight={600} gutterBottom>
+          <AutoAwesomeIcon color="primary" /> Análisis Predictivo (IA)
+        </Typography>
+
+        {usuario.rol === 'ADMIN' && (
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={recalculando ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+            onClick={handleRecalcular}
+            disabled={recalculando}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
+          >
+            {recalculando ? 'Iniciando...' : 'Recalcular Predicciones'}
+          </Button>
+        )}
+      </Box>
 
       {usuario.rol === 'ADMIN' && (
         <Grid container spacing={3}>
@@ -450,6 +498,17 @@ function AnalisisIA() {
           </Grid>
         </Grid>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

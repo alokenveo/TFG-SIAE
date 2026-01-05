@@ -8,6 +8,8 @@ import org.springframework.security.core.userdetails.User;
 import unex.cum.tfg.siae.model.Usuario;
 
 public class CustomUserDetails extends User {
+	
+	private static final long serialVersionUID = 1L;
 
 	private final Usuario usuario;
 
