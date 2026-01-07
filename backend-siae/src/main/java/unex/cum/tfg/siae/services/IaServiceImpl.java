@@ -64,16 +64,17 @@ public class IaServiceImpl implements IaService {
 			map.put("dni", p.getAlumno().getDni()); // Opcional
 
 			// Datos de la Predicción
-			map.put("riesgo_global", p.getRiesgoGlobal());
+			map.put("prob_repetir", p.getProbRepetir());
+			map.put("prob_abandono", p.getProbAbandono());
 			map.put("n_suspensos_predichos", p.getnSuspensosPredichos());
 
 			// Convertir el String JSON guardado en BD a List<Map> real
 			try {
 				if (p.getDetalleJson() != null) {
-					List<Map<String, Object>> detalle = mapper.readValue(p.getDetalleJson(),
-							new TypeReference<List<Map<String, Object>>>() {
-							});
-					map.put("predicciones", detalle);
+					Map<String, Object> detalle = mapper.readValue(p.getDetalleJson(), new TypeReference<>() {
+					});
+					map.put("asignaturas", detalle.get("asignaturas")); // As array for frontend
+					map.put("recomendaciones_globales", detalle.get("recomendaciones_globales"));
 				}
 			} catch (Exception e) {
 				map.put("predicciones", new ArrayList<>());
@@ -87,35 +88,82 @@ public class IaServiceImpl implements IaService {
 	@Override
 	public Map<String, Object> getPrediccionAgregada(int anioAcademico, String nivel) {
 		Map<String, Object> resultado = new HashMap<>();
+		ObjectMapper mapper = new ObjectMapper();
 
 		if ("provincia".equals(nivel)) {
-			// Cargar datos de todas las provincias
 			List<PrediccionProvincia> listado = predProvinciaRepo.findByAnioAcademico(anioAcademico);
-
-			// Convertir a formato DataFrame-like para el front
-			List<Map<String, Object>> filas = listado.stream().map(prov -> Map.of("provincia",
-					(Object) prov.getProvincia(), "tasa_suspensos_predicha", prov.getTasaSuspensosMedia()))
-					.collect(Collectors.toList());
+			List<Map<String, Object>> filas = listado.stream().map(prov -> {
+				Map<String, Object> map = new HashMap<>();
+				map.put("provincia", prov.getProvincia());
+				map.put("tasa_suspensos_predicha", prov.getTasaSuspensosPredicha());
+				map.put("nota_media", prov.getNotaMedia());
+				map.put("num_alumnos", prov.getNumAlumnos());
+				map.put("impacto_ratio", prov.getImpactoRatio());
+				map.put("tasa_si_10_docentes_mas", prov.getTasaSi10DocentesMas());
+				return map;
+			}).collect(Collectors.toList());
 
 			resultado.put("agregados", filas);
 
-		} else if ("centro_educativo_id".equals(nivel) || "centro".equals(nivel)) {
+			// Parse JSONs (assume one prov for simplicity, or aggregate if multiple)
+			if (!listado.isEmpty()) {
+				PrediccionProvincia firstProv = listado.get(0);
+				try {
+					if (firstProv.getJsonTendencias() != null) {
+						List<Map<String, Object>> tendencias = mapper.readValue(firstProv.getJsonTendencias(),
+								new TypeReference<>() {
+								});
+						resultado.put("tendencias", tendencias);
+					}
+					if (firstProv.getJsonDisparidades() != null) {
+						List<Map<String, Object>> disparidades = mapper.readValue(firstProv.getJsonDisparidades(),
+								new TypeReference<>() {
+								});
+						resultado.put("disparidades", disparidades);
+					}
+				} catch (Exception e) {
+					// Log error, skip
+				}
+			}
+		} else if ("centro_educativo_id".equals(nivel)) {
+			// Similar to provincia, add all fields and parse JSONs
 			List<PrediccionCentro> listado = predCentroRepo.findByAnioAcademico(anioAcademico);
-
 			List<Map<String, Object>> filas = listado.stream().map(centro -> {
 				Map<String, Object> map = new HashMap<>();
-				// Ojo: Asegúrate de que tu entidad PrediccionCentro tiene acceso al nombre del
-				// centro
-				map.put("centro_id", centro.getCentro().getId()); // Asumiendo getCentro()
-				map.put("nombre_centro", centro.getCentro().getNombre()); // Asumiendo getNombre()
-				map.put("tasa_suspensos_media", centro.getTasaSuspensosMedia());
+				map.put("centro_id", centro.getCentro().getId());
+				map.put("nombre_centro", centro.getCentro().getNombre());
+				map.put("tasa_suspensos_predicha", centro.getTasaSuspensosPredicha());
+				map.put("nota_media", centro.getNotaMedia());
+				map.put("num_alumnos", centro.getNumAlumnos());
+				map.put("impacto_ratio", centro.getImpactoRatio());
+				map.put("tasa_si_10_docentes_mas", centro.getTasaSi10DocentesMas());
 				map.put("ranking", centro.getRankingRiesgo());
 				return map;
 			}).collect(Collectors.toList());
 
 			resultado.put("agregados", filas);
-		}
 
+			// Parse JSONs similarly
+			if (!listado.isEmpty()) {
+				PrediccionCentro firstCentro = listado.get(0);
+				try {
+					if (firstCentro.getJsonTendencias() != null) {
+						List<Map<String, Object>> tendencias = mapper.readValue(firstCentro.getJsonTendencias(),
+								new TypeReference<>() {
+								});
+						resultado.put("tendencias", tendencias);
+					}
+					if (firstCentro.getJsonDisparidades() != null) {
+						List<Map<String, Object>> disparidades = mapper.readValue(firstCentro.getJsonDisparidades(),
+								new TypeReference<>() {
+								});
+						resultado.put("disparidades", disparidades);
+					}
+				} catch (Exception e) {
+					// Log
+				}
+			}
+		}
 		return resultado;
 	}
 
@@ -127,8 +175,11 @@ public class IaServiceImpl implements IaService {
 
 		return preds.stream().map(p -> {
 			Map<String, Object> map = new HashMap<>();
+			map.put("nivel_id", p.getNivelId());
+			map.put("curso_orden", p.getCursoOrden());
 			map.put("asignatura_nombre", p.getAsignatura().getNombre());
-			map.put("tasa_suspensos_media", p.getTasaSuspensosPredicha());
+			map.put("tasa_suspensos_predicha", p.getTasaSuspensosPredicha()); // Corrige nombre
+			map.put("n_alumnos", p.getNAlumnos());
 			map.put("dificultad", p.getDificultadPercibida());
 			return map;
 		}).collect(Collectors.toList());

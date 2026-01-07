@@ -1,12 +1,11 @@
 import sys
 import os
 import json
+import time
 import mysql.connector
-import pandas as pd
-from datetime import datetime
 
 # Ajustar path para importar desde siae_ml (subimos un nivel)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from siae_ml.data_loader import extraer_datos
 from siae_ml.features import prepare_features
@@ -14,237 +13,295 @@ from siae_ml.model_trainer import load_models
 from siae_ml.predictor import (
     predecir_por_alumno_asignaturas,
     predicciones_agregadas,
-    predecir_rendimiento_por_asignatura
+    predecir_rendimiento_por_asignatura,
 )
 
 # Configuración de conexión
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "almiokob", 
-    "database": "siae_db"
+    "password": "almiokob",
+    "database": "siae_db",
 }
 
-# Año académico actual para las predicciones (esto podría venir por argumento)
-ANIO_ACTUAL = 2025 
+ANIO_ACTUAL = 2025
+
 
 def conectar_db():
     return mysql.connector.connect(**DB_CONFIG)
 
+
 def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
     print("👤 Procesando predicciones por ALUMNO...")
-    
-    alumnos_ids = df['alumno_id'].unique()
+
+    alumnos_ids = df["alumno_id"].unique()
     total = len(alumnos_ids)
     batch_data = []
-    
-    # Query con ON DUPLICATE KEY UPDATE para permitir recalcular sin errores
+
     query = """
         INSERT INTO prediccion_alumno 
-        (alumno_id, anio_academico, riesgo_global, n_suspensos_predichos, detalle_json, fecha_prediccion)
-        VALUES (%s, %s, %s, %s, %s, NOW())
+        (alumno_id, anio_academico, prob_repetir, n_suspensos_predichos, detalle_json, prob_abandono, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
         ON DUPLICATE KEY UPDATE
-        riesgo_global = VALUES(riesgo_global),
+        prob_repetir = VALUES(prob_repetir),
         n_suspensos_predichos = VALUES(n_suspensos_predichos),
         detalle_json = VALUES(detalle_json),
+        prob_abandono = VALUES(prob_abandono),
         fecha_prediccion = NOW()
     """
-    
-    for idx, alumno_id in enumerate(alumnos_ids):
-        # 1. Obtenemos predicción cruda
-        preds = predecir_por_alumno_asignaturas(modelos, encoders, alumno_id, df, proximo_anio_academico=ANIO_ACTUAL)
-        
-        if not preds:
+
+    for idx, alumno_id in enumerate(alumnos_ids, start=1):
+        print(f"   ➤ Alumno {idx}/{total}", end="\r")
+        # Llamada a la predicción
+        respuesta_raw = predecir_por_alumno_asignaturas(
+            modelos, encoders, alumno_id, df, proximo_anio_academico=ANIO_ACTUAL
+        )
+
+        if not respuesta_raw:
             continue
-            
-        # 2. Calculamos métricas resumen para las columnas SQL
-        if isinstance(preds, dict):
-            # Si devuelve un diccionario (ej: {"resultados": [...]}), extraemos la lista
-            if 'resultados' in preds:
-                preds = preds['resultados']
-            elif 'predicciones' in preds:
-                preds = preds['predicciones']
-            else:
-                # Si no sabemos qué es, imprimimos y saltamos para no romper el script
-                print(f"⚠️ Estructura desconocida para alumno {alumno_id}: {type(preds)} - Keys: {preds.keys()}")
-                continue
-        
-        if isinstance(preds, str):
-             print(f"⚠️ Error devuelto para alumno {alumno_id}: {preds}")
-             continue
-            
-        # Calcular métricas globales
-        try:
-            n_suspensos = sum(1 for p in preds if p['riesgo_alto'])
-        except TypeError as e:
-            print(f"❌ Error al procesar alumno {alumno_id}. Preds: {preds}")
-            raise e
-        
-        probs = [p['prob_suspenso'] for p in preds]
-        riesgo_global = sum(probs) / len(probs) if probs else 0.0
-        
-        # 3. Preparamos el JSON (detalle_json)
-        # Convertimos numpy types a nativos para que JSON no falle
+
+        lista_asignaturas = respuesta_raw.get("asignaturas", [])
+
+        # Calcular n_suspensos
+        n_suspensos = sum(
+            1 for p in lista_asignaturas if p.get("prob_suspender", 0.0) > 0.5
+        )
+
+        prob_repetir = respuesta_raw.get("prob_repetir", 0.0)
+        prob_abandono = respuesta_raw.get("prob_abandono", 0.0)
+
+        # Si no venía el riesgo global en el dict padre, lo calculamos como media
+        if prob_repetir == 0.0 and lista_asignaturas:
+            probs = [p.get("prob_suspender", 0.0) for p in lista_asignaturas]
+            prob_repetir = sum(probs) / len(probs) if probs else 0.0
+
+        # Limpieza para JSON
         detalle_limpio = []
-        for p in preds:
-            detalle_limpio.append({
-                "asignatura": p["asignatura_nombre"],
-                "probabilidad": float(round(p["prob_suspenso"], 2)),
-                "riesgo_alto": bool(p["riesgo_alto"]),
-                "nota_estimada": float(round(p["nota_estimada"], 2)) if p["nota_estimada"] is not None else None
-            })
-        
+        for p in lista_asignaturas:
+            detalle_limpio.append(
+                {
+                    "asignatura_id": p.get("asignatura_id"),
+                    "asignatura": p.get("asignatura_nombre", "Desconocida"),
+                    "prob_suspender": float(round(p.get("prob_suspender", 0.0), 2)),
+                    "nota_estimada": (
+                        float(round(p.get("nota_esperada", 0.0), 2))
+                        if p.get("nota_esperada") is not None
+                        else None
+                    ),
+                    "recomendaciones": p.get("recomendaciones", []),
+                }
+            )
+
         detalle_json_str = json.dumps(detalle_limpio)
-        
-        batch_data.append((
-            int(alumno_id), 
-            ANIO_ACTUAL, 
-            float(riesgo_global), 
-            int(n_suspensos), 
-            detalle_json_str
-        ))
-        
+
+        batch_data.append(
+            (
+                int(alumno_id),
+                ANIO_ACTUAL,
+                float(prob_repetir),
+                int(n_suspensos),
+                detalle_json_str,
+            )
+        )
+
         if len(batch_data) >= 50:
             cursor.executemany(query, batch_data)
             batch_data = []
-            
+
     if batch_data:
         cursor.executemany(query, batch_data)
+    print()
     print(f"✅ {total} alumnos procesados.")
 
-def guardar_agregadas_centro(cursor):
+
+def guardar_agregadas_centro(cursor, modelos, encoders, df):
     print("🏢 Procesando predicciones por CENTRO...")
-    
-    # Usamos tu función existente
-    resultados = predicciones_agregadas('centro') 
-    df_agregado = resultados['agregados']
-    
-    query = """
-        INSERT INTO prediccion_centro 
-        (centro_id, anio_academico, tasa_suspensos_media, alumnos_riesgo_alto, ranking_riesgo, fecha_prediccion)
-        VALUES (%s, %s, %s, %s, %s, NOW())
-        ON DUPLICATE KEY UPDATE
-        tasa_suspensos_media = VALUES(tasa_suspensos_media),
-        alumnos_riesgo_alto = VALUES(alumnos_riesgo_alto),
-        ranking_riesgo = VALUES(ranking_riesgo),
-        fecha_prediccion = NOW()
-    """
-    
+
+    try:
+        resultados = predicciones_agregadas(df, modelos, "centro_educativo_id")
+    except Exception as e:
+        print(f"Error en agregadas centro: {e}")
+        return
+
+    df_agregado = resultados["agregados"]
+
     datos = []
     for _, row in df_agregado.iterrows():
-        datos.append((
-            int(row['centro_educativo_id']), 
-            ANIO_ACTUAL,
-            float(row['tasa_suspensos_predicha']),
-            int(row['alumnos_riesgo_alto']),
-            int(row['ranking_riesgo'])
-        ))
-    
+        datos.append(
+            (
+                int(row["centro_educativo_id"]),
+                ANIO_ACTUAL,
+                float(row["tasa_suspensos_predicha"]),
+                float(row.get("nota_media", 0.0)),
+                int(row.get("num_alumnos", 0)),
+                int(row["ranking_riesgo"]),
+                float(row.get("impacto_ratio", 0.0)),
+                float(row.get("tasa_si_10_docentes_mas", 0.0)),
+                json.dumps(resultados["tendencias"].to_dict(orient="records")),
+                json.dumps(resultados["disparidades"].to_dict(orient="records")),
+            )
+        )
+
+    query = """
+        INSERT INTO prediccion_centro 
+        (centro_id, anio_academico, tasa_suspensos_predicha, nota_media, num_alumnos, alumnos_riesgo_alto, ranking_riesgo, impacto_ratio, tasa_si_10_docentes_mas, json_tendencias, json_disparidades, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        ON DUPLICATE KEY UPDATE
+        tasa_suspensos_predicha = VALUES(tasa_suspensos_predicha),
+        nota_media = VALUES(nota_media),
+        num_alumnos = VALUES(num_alumnos),
+        ranking_riesgo = VALUES(ranking_riesgo),
+        impacto_ratio = VALUES(impacto_ratio),
+        tasa_si_10_docentes_mas = VALUES(tasa_si_10_docentes_mas),
+        json_tendencias = VALUES(json_tendencias),
+        json_disparidades = VALUES(json_disparidades),
+        fecha_prediccion = NOW(
+    """
+
     if datos:
         cursor.executemany(query, datos)
     print(f"✅ {len(datos)} centros guardados.")
 
-def guardar_agregadas_provincia(cursor):
+
+def guardar_agregadas_provincia(cursor, modelos, encoders, df):
     print("🌍 Procesando predicciones por PROVINCIA...")
-    
-    resultados = predicciones_agregadas('provincia')
-    df_agregado = resultados['agregados']
+
+    try:
+        resultados = predicciones_agregadas(df, modelos, "provincia")
+    except Exception as e:
+        print(f"Error en agregadas provincia: {e}")
+        return
+
+    df_agregado = resultados["agregados"]
+
+    datos = []
+    for _, row in df_agregado.iterrows():
+        datos.append((
+            row["provincia"],
+            ANIO_ACTUAL,
+            float(row["tasa_suspensos_predicha"]),
+            float(row.get("nota_media", 0.0)),
+            int(row.get("num_alumnos", 0)),
+            float(row.get("impacto_ratio", 0.0)),
+            float(row.get("tasa_si_10_docentes_mas", 0.0)),
+            json.dumps(resultados["tendencias"].to_dict(orient="records")),
+            json.dumps(resultados["disparidades"].to_dict(orient="records"))
+        ))
     
     query = """
         INSERT INTO prediccion_provincia 
-        (provincia, anio_academico, tasa_suspensos_media, fecha_prediccion)
-        VALUES (%s, %s, %s, NOW())
+        (provincia, anio_academico, tasa_suspensos_predicha, nota_media, num_alumnos, impacto_ratio, tasa_si_10_docentes_mas, json_tendencias, json_disparidades, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         ON DUPLICATE KEY UPDATE
-        tasa_suspensos_media = VALUES(tasa_suspensos_media),
+        tasa_suspensos_predicha = VALUES(tasa_suspensos_predicha),
+        nota_media = VALUES(nota_media),
+        num_alumnos = VALUES(num_alumnos),
+        impacto_ratio = VALUES(impacto_ratio),
+        tasa_si_10_docentes_mas = VALUES(tasa_si_10_docentes_mas),
+        json_tendencias = VALUES(json_tendencias),
+        json_disparidades = VALUES(json_disparidades),
         fecha_prediccion = NOW()
     """
-    
-    datos = []
-    # Definir mapeo si los nombres en Python no coinciden exactamente con el ENUM de SQL
-    # Si coinciden, no hace falta mapeo manual, pero aseguramos mayúsculas
-    for _, row in df_agregado.iterrows():
-        prov = row['provincia'].upper().replace(' ', '_') # Ajuste básico para ENUM
-        datos.append((
-            prov, 
-            ANIO_ACTUAL,
-            float(row['tasa_suspensos_predicha'])
-        ))
-        
+
     if datos:
         cursor.executemany(query, datos)
     print(f"✅ {len(datos)} provincias guardadas.")
 
+
 def guardar_rendimiento_asignaturas(cursor, df, modelo_susp):
     print("📚 Procesando rendimiento por ASIGNATURA...")
-    
+
     df_rend = predecir_rendimiento_por_asignatura(df, modelo_susp)
+
+    datos = []
+    for _, row in df_rend.iterrows():
+        tasa = float(row["tasa_suspensos_predicha"])
+        dificultad = "BAJA"
+        if tasa > 0.3:
+            dificultad = "MEDIA"
+        if tasa > 0.6:
+            dificultad = "ALTA"
+        if tasa > 0.8:
+            dificultad = "MUY ALTA"
+
+        datos.append(
+            (
+                int(row["asignatura_id"]),
+                ANIO_ACTUAL,
+                tasa,
+                dificultad,
+                int(row.get("nivel_id", 0)),
+                int(row.get("curso_orden", 0)),
+                int(row.get("n_alumnos", 0)),
+            )
+        )
     
     query = """
         INSERT INTO prediccion_asignatura 
-        (asignatura_id, anio_academico, tasa_suspensos_predicha, dificultad_percibida, fecha_prediccion)
-        VALUES (%s, %s, %s, %s, NOW())
+        (asignatura_id, anio_academico, tasa_suspensos_predicha, dificultad_percibida, nivel_id, curso_orden, n_alumnos, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
         ON DUPLICATE KEY UPDATE
         tasa_suspensos_predicha = VALUES(tasa_suspensos_predicha),
         dificultad_percibida = VALUES(dificultad_percibida),
+        nivel_id = VALUES(nivel_id),
+        curso_orden = VALUES(curso_orden),
+        n_alumnos = VALUES(n_alumnos),
         fecha_prediccion = NOW()
     """
-    
-    datos = []
-    for _, row in df_rend.iterrows():
-        # Calculamos dificultad basada en tasa
-        tasa = float(row['tasa_suspensos_media'])
-        dificultad = "BAJA"
-        if tasa > 0.3: dificultad = "MEDIA"
-        if tasa > 0.6: dificultad = "ALTA"
-        if tasa > 0.8: dificultad = "MUY ALTA"
 
-        datos.append((
-            int(row['asignatura_id']),
-            ANIO_ACTUAL,
-            tasa,
-            dificultad
-        ))
-    
     if datos:
         cursor.executemany(query, datos)
     print(f"✅ {len(datos)} asignaturas guardadas.")
 
+
 def ejecutar_batch():
+    start_time = time.perf_counter()
     print(f"🚀 INICIANDO BATCH JOB (Año Académico: {ANIO_ACTUAL})")
-    
+    conn = None
+    cursor = None
     try:
-        # 1. Cargar recursos
         print("📥 Cargando modelos y datos...")
         modelos, encoders = load_models()
         df_raw = extraer_datos()
         df, _ = prepare_features(df_raw)
-        
+
         conn = conectar_db()
         cursor = conn.cursor()
-        
-        # 2. Ejecutar guardados
-        # Nota: No hacemos TRUNCATE porque ahora usamos ON DUPLICATE KEY UPDATE
-        # Esto permite mantener histórico de otros años si los hubiera.
-        
+
+        print("\n[1/4] Predicciones por alumno")
         guardar_predicciones_alumnos(cursor, df, modelos, encoders)
-        guardar_agregadas_centro(cursor)
-        guardar_agregadas_provincia(cursor)
-        
-        if 'susp_asig' in modelos:
-            guardar_rendimiento_asignaturas(cursor, df, modelos['susp_asig'])
-            
+
+        print("\n[2/4] Agregados por centro")
+        guardar_agregadas_centro(cursor, modelos, encoders, df)
+
+        print("\n[3/4] Agregados por provincia")
+        guardar_agregadas_provincia(cursor, modelos, encoders, df)
+
+        if "susp_asig" in modelos:
+            print("\n[4/4] Rendimiento por asignatura")
+            guardar_rendimiento_asignaturas(cursor, df, modelos["susp_asig"])
+
         conn.commit()
         print("\n🏁 PROCESO COMPLETADO EXITOSAMENTE.")
-        
+
     except Exception as e:
-        if 'conn' in locals() and conn.is_connected():
+        if conn and conn.is_connected():
             conn.rollback()
         print(f"\n❌ ERROR CRÍTICO: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
-        if 'cursor' in locals(): cursor.close()
-        if 'conn' in locals() and conn.is_connected(): conn.close()
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+    tiempo = time.perf_counter() - start_time
+    minutos = int(tiempo // 60)
+    segundos = int(tiempo % 60)
+    print(f"\n⏱️ Tiempo total de ejecución: {minutos} min {segundos} s")
+
 
 if __name__ == "__main__":
     ejecutar_batch()

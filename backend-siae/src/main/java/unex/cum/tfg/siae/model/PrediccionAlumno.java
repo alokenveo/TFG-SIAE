@@ -19,8 +19,11 @@ public class PrediccionAlumno {
 	@Column(name = "anio_academico", nullable = false)
 	private Integer anioAcademico;
 
-	@Column(name = "riesgo_global")
-	private Double riesgoGlobal;
+	@Column(name = "prob_repetir")
+	private Double probRepetir;
+	
+	@Column(name = "prob_abandono")
+	private Double probAbandono;
 
 	@Column(name = "n_suspensos_predichos")
 	private Integer nSuspensosPredichos;
@@ -37,11 +40,11 @@ public class PrediccionAlumno {
 	public PrediccionAlumno() {
 	}
 
-	public PrediccionAlumno(Alumno alumno, Integer anioAcademico, Double riesgoGlobal, Integer nSuspensosPredichos,
+	public PrediccionAlumno(Alumno alumno, Integer anioAcademico, Double probRepetir, Integer nSuspensosPredichos,
 			String detalleJson) {
 		this.alumno = alumno;
 		this.anioAcademico = anioAcademico;
-		this.riesgoGlobal = riesgoGlobal;
+		this.probRepetir = probRepetir;
 		this.nSuspensosPredichos = nSuspensosPredichos;
 		this.detalleJson = detalleJson;
 		this.fechaPrediccion = LocalDateTime.now();
@@ -74,12 +77,20 @@ public class PrediccionAlumno {
 		this.anioAcademico = anioAcademico;
 	}
 
-	public Double getRiesgoGlobal() {
-		return riesgoGlobal;
+	public Double getProbRepetir() {
+		return probRepetir;
 	}
 
-	public void setRiesgoGlobal(Double riesgoGlobal) {
-		this.riesgoGlobal = riesgoGlobal;
+	public void setProbRepetir(Double probRepetir) {
+		this.probRepetir = probRepetir;
+	}
+
+	public Double getProbAbandono() {
+		return probAbandono;
+	}
+
+	public void setProbAbandono(Double probAbandono) {
+		this.probAbandono = probAbandono;
 	}
 
 	public Integer getnSuspensosPredichos() {
@@ -109,7 +120,9 @@ public class PrediccionAlumno {
 	@Override
 	public String toString() {
 		return "PrediccionAlumno [id=" + id + ", alumno=" + alumno + ", anioAcademico=" + anioAcademico
-				+ ", riesgoGlobal=" + riesgoGlobal + ", nSuspensosPredichos=" + nSuspensosPredichos + ", detalleJson="
-				+ detalleJson + ", fechaPrediccion=" + fechaPrediccion + "]";
+				+ ", probRepetir=" + probRepetir + ", probAbandono=" + probAbandono + ", nSuspensosPredichos="
+				+ nSuspensosPredichos + ", detalleJson=" + detalleJson + ", fechaPrediccion=" + fechaPrediccion + "]";
 	}
+
+	
 }
