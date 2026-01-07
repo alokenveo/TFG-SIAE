@@ -101,6 +101,7 @@ def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
                 float(prob_repetir),
                 int(n_suspensos),
                 detalle_json_str,
+                float(prob_abandono)
             )
         )
 
@@ -144,8 +145,8 @@ def guardar_agregadas_centro(cursor, modelos, encoders, df):
 
     query = """
         INSERT INTO prediccion_centro 
-        (centro_id, anio_academico, tasa_suspensos_predicha, nota_media, num_alumnos, alumnos_riesgo_alto, ranking_riesgo, impacto_ratio, tasa_si_10_docentes_mas, json_tendencias, json_disparidades, fecha_prediccion)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        (centro_id, anio_academico, tasa_suspensos_predicha, nota_media, num_alumnos, ranking_riesgo, impacto_ratio, tasa_si_10_docentes_mas, json_tendencias, json_disparidades, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         ON DUPLICATE KEY UPDATE
         tasa_suspensos_predicha = VALUES(tasa_suspensos_predicha),
         nota_media = VALUES(nota_media),
@@ -155,7 +156,7 @@ def guardar_agregadas_centro(cursor, modelos, encoders, df):
         tasa_si_10_docentes_mas = VALUES(tasa_si_10_docentes_mas),
         json_tendencias = VALUES(json_tendencias),
         json_disparidades = VALUES(json_disparidades),
-        fecha_prediccion = NOW(
+        fecha_prediccion = NOW()
     """
 
     if datos:

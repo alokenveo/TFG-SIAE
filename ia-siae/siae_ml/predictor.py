@@ -360,6 +360,7 @@ def predecir_rendimiento_por_asignatura(df, model_susp):
         [
             "nivel_id",
             "curso_orden",
+            "asignatura_id",
             "asignatura_nombre",
             "tasa_suspensos_predicha",
             "n_alumnos",

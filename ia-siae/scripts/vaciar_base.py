@@ -11,7 +11,7 @@ def conectar_db():
 def vaciar_tablas():
     conn = conectar_db()
     cursor = conn.cursor()
-    tablas = ['nota', 'matricula', 'alumno', 'personal']
+    tablas = ['nota', 'matricula', 'alumno', 'personal', 'prediccion_asignatura', 'prediccion_provincia', 'prediccion_alumno', 'prediccion_centro']
 
     cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
     for tabla in tablas:

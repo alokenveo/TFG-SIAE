@@ -146,8 +146,10 @@ def train_models_extended(df, encoders):
     }
     # Añadir el tiempo que se ha tardado en minutos
     tiempo_total = time.perf_counter() - tiempo_inicio
+    minutos = int(tiempo_total // 60)
+    segundos = int(tiempo_total % 60)
     print(
-        f"✅ Entenamiendo de modelos listo en {tiempo_total / 60:.2f} minutos."
+        f"✅ Entenamiendo de modelos listo en {minutos} minutos y {segundos} segundos."
     )
     return models
 
