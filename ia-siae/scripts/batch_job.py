@@ -24,7 +24,7 @@ DB_CONFIG = {
     "database": "siae_db",
 }
 
-ANIO_ACTUAL = 2025
+ANIO_ACTUAL = 2026
 
 
 def conectar_db():

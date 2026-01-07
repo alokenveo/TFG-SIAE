@@ -178,14 +178,14 @@ function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const currentYear = new Date().getFullYear();
+  const ACADEMIC_YEAR = 2025;
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
       setError('');
       try {
-        const res = await dashboardService.getStats(currentYear);
+        const res = await dashboardService.getStats(ACADEMIC_YEAR);
         setStats(res.data);
       } catch (err) {
         console.error(err);
@@ -195,7 +195,7 @@ function Dashboard() {
       }
     };
     if (usuario) fetchStats();
-  }, [usuario, currentYear]);
+  }, [usuario, ACADEMIC_YEAR]);
 
   if (loading || !usuario)
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
@@ -244,7 +244,7 @@ function Dashboard() {
 
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <ChartCard title={`Rendimiento (1ª Ev ${currentYear})`} isLoading={loading}>
+                <ChartCard title={`Rendimiento (1ª Ev ${ACADEMIC_YEAR})`} isLoading={loading}>
                   <Typography>Media Centro: {stats.rendimientoCentroPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography>Media Nacional: {stats.rendimientoNacionalPorEvaluacion?.[0]?.[1]?.toFixed(2) ?? 'N/A'}</Typography>
                 </ChartCard>

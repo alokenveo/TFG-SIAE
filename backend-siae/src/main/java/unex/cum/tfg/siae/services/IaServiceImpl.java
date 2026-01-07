@@ -58,7 +58,7 @@ public class IaServiceImpl implements IaService {
 			Map<String, Object> map = new HashMap<>();
 
 			// Datos del Alumno (gracias al @ManyToOne)
-			map.put("alumnoId", p.getAlumno().getId());
+			map.put("alumno_id", p.getAlumno().getId());
 			map.put("nombre", p.getAlumno().getNombre());
 			map.put("apellidos", p.getAlumno().getApellidos());
 			map.put("dni", p.getAlumno().getDni()); // Opcional
@@ -71,14 +71,17 @@ public class IaServiceImpl implements IaService {
 			// Convertir el String JSON guardado en BD a List<Map> real
 			try {
 				if (p.getDetalleJson() != null) {
-					Map<String, Object> detalle = mapper.readValue(p.getDetalleJson(), new TypeReference<>() {
-					});
-					map.put("asignaturas", detalle.get("asignaturas")); // As array for frontend
-					map.put("recomendaciones_globales", detalle.get("recomendaciones_globales"));
+					List<Map<String, Object>> asignaturas = mapper.readValue(p.getDetalleJson(),
+							new TypeReference<List<Map<String, Object>>>() {
+							});
+					Map<String, Object> detalle = new HashMap<>();
+					detalle.put("asignaturas", asignaturas);
+					detalle.put("recomendaciones_globales", new ArrayList<>());
+					map.put("detalle", detalle);
 				}
 			} catch (Exception e) {
-				map.put("predicciones", new ArrayList<>());
-				System.err.println("Error parseando JSON prediccion id: " + p.getId());
+				map.put("asignaturas", new ArrayList<>());
+				System.err.println("Error parseando JSON prediccion id: " + p.getId() + "; ERROR: " + e.getMessage());
 			}
 
 			return map;
