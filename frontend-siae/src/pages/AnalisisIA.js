@@ -376,10 +376,12 @@ function AnalisisIA() {
       setError('');
       try {
         const statsResponse = await iaService.getIaStats(currentYear);
+        console.log('IA stats response:', statsResponse?.data);
         setStats(statsResponse.data);
 
         if (usuario.rol === 'ADMIN') {
           const rendResponse = await iaService.getRendimiento();
+          console.log('Rendimiento response:', rendResponse?.data);
           setRendimiento(rendResponse.data);
         }
       } catch (err) {

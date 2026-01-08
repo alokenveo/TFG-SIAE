@@ -1,5 +1,6 @@
 package unex.cum.tfg.siae.services;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -134,7 +135,7 @@ public class IaServiceImpl implements IaService {
 			List<Map<String, Object>> filas = listado.stream().map(centro -> {
 				Map<String, Object> map = new HashMap<>();
 				map.put("centro_id", centro.getCentro().getId());
-				map.put("nombre_centro", centro.getCentro().getNombre());
+				map.put("centro_educativo_id", centro.getCentro().getNombre());
 				map.put("tasa_suspensos_predicha", centro.getTasaSuspensosPredicha());
 				map.put("nota_media", centro.getNotaMedia());
 				map.put("num_alumnos", centro.getNumAlumnos());
@@ -173,7 +174,7 @@ public class IaServiceImpl implements IaService {
 	@Override
 	public List<Map<String, Object>> getRendimientoPorAsignatura() {
 		// Asumimos año actual (2025) o lo pasamos como parámetro
-		int anioActual = 2025;
+		int anioActual = LocalDate.now().getYear();
 		List<PrediccionAsignatura> preds = predAsignaturaRepo.findByAnioAcademico(anioActual);
 
 		return preds.stream().map(p -> {
