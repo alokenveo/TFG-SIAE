@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, Line
+  Legend, ResponsiveContainer, Line, ReferenceLine, Cell
 } from 'recharts';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -382,27 +382,132 @@ const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) =
 const DisparidadesChart = ({ data, isLoading }) => {
   const [openModal, setOpenModal] = useState(false);
 
+  const procesarDisparidades = (rawData) => {
+    const porProvincia = {};
+
+    rawData.forEach(item => {
+      const { provincia, sexo, 'tasa_suspenso_%': tasaSuspenso } = item;
+
+      if (!porProvincia[provincia]) {
+        porProvincia[provincia] = { provincia };
+      }
+
+      if (sexo === 'MASCULINO') {
+        porProvincia[provincia].masculino = tasaSuspenso;
+      } else if (sexo === 'FEMENINO') {
+        porProvincia[provincia].femenino = tasaSuspenso;
+      }
+    });
+
+    return Object.values(porProvincia)
+      .filter(p => p.masculino != null && p.femenino != null)
+      .map(p => ({
+        provincia: p.provincia,
+        gap_sexo: +(p.masculino - p.femenino).toFixed(2),
+        masculino: p.masculino,
+        femenino: p.femenino
+      }));
+  };
+
+
+  const processedData = procesarDisparidades(data);
+
   const ChartContent = (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data}>
+      <BarChart data={processedData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="provincia" />
-        <YAxis />
-        <RechartsTooltip />
+        <YAxis
+          label={{
+            value: 'Brecha de suspensos (M − F)',
+            angle: -90,
+            position: 'insideLeft'
+          }}
+        />
+
+        <ReferenceLine
+          y={0}
+          stroke="#000"
+          strokeDasharray="3 3"
+          label={{
+            value: 'Sin brecha',
+            position: 'right',
+            fill: '#555',
+            fontSize: 12
+          }}
+        />
+
+        <RechartsTooltip
+          formatter={(value, name, props) => {
+            if (name === 'gap_sexo') {
+              return [`${value} pts`, 'Brecha M − F'];
+            }
+            return value;
+          }}
+          labelFormatter={(label) => `Provincia: ${label}`}
+          content={({ payload, label }) => {
+            if (!payload || !payload.length) return null;
+            const d = payload[0].payload;
+            return (
+              <Box sx={{ p: 1 }}>
+                <strong>{label}</strong>
+                <div>♂ Masculino: {d.masculino}%</div>
+                <div>♀ Femenino: {d.femenino}%</div>
+                <div><strong>Brecha:</strong> {d.gap_sexo} pts</div>
+              </Box>
+            );
+          }}
+        />
         <Legend />
-        <Bar dataKey="tasa_suspenso_%" fill="#8884d8" name="Tasa Suspenso (%)" />
-        <Bar dataKey="gap_vs_media" fill="#82ca9d" name="Gap vs Media" />
+        <Bar
+          dataKey="gap_sexo"
+          name="Brecha de suspensos (M − F)"
+          fill="#ff7043"
+        >
+          {processedData.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={
+                entry.gap_sexo > 0
+                  ? '#2e7d32'   // verde
+                  : entry.gap_sexo < 0
+                    ? '#c62828' // rojo
+                    : '#9e9e9e' // gris
+              }
+            />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
 
   return (
     <>
-      <ChartCard title="Disparidades por Sexo y Provincia" isLoading={isLoading} onExpand={() => setOpenModal(true)}>
+      <ChartCard
+        title="Disparidad de Suspensos por Sexo y Provincia"
+        isLoading={isLoading}
+        onExpand={() => setOpenModal(true)}
+      >
         {ChartContent}
+
+        <Typography
+          variant="caption"
+          sx={{
+            mt: 1,
+            color: 'text.secondary',
+            textAlign: 'center'
+          }}
+        >
+          Nota: valores positivos indican mayor tasa de suspensos en alumnado masculino;
+          valores negativos, mayor tasa en alumnado femenino.
+        </Typography>
       </ChartCard>
 
-      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Disparidades por Sexo y Provincia (Vista Ampliada)">
+      <ChartModal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        title="Disparidad de Suspensos por Sexo y Provincia (Vista Ampliada)"
+      >
         {ChartContent}
       </ChartModal>
     </>
