@@ -102,7 +102,7 @@ const RiesgoAlumnosTable = ({ data, isLoading, onAlumnoClick }) => {
             </TableHead>
             <TableBody>
               {data
-                ?.filter(alumno => alumno.asignaturas?.some(asig => asig.prob_suspender > 0.5)) // 🔹 solo alumnos en riesgo
+                ?.filter(alumno => alumno.detalle?.asignaturas?.some(asig => parseFloat(asig.prob_suspender) > 0.5)) // 🔹 solo alumnos en riesgo
                 .map((alumno) => (
                   <React.Fragment key={alumno.alumno_id}>
                     <TableRow
@@ -148,7 +148,7 @@ const RiesgoAlumnosTable = ({ data, isLoading, onAlumnoClick }) => {
                           <Box sx={{ p: 2, background: 'rgba(0,0,0,0.02)' }}>
                             <Typography variant="subtitle2" gutterBottom>Recomendaciones Globales</Typography>
                             <ul>
-                              {alumno.recomendaciones_globales.map((rec, idx) => <li key={idx}>{rec}</li>)}
+                              {alumno.detalle?.recomendaciones_globales.map((rec, idx) => <li key={idx}>{rec}</li>)}
                             </ul>
 
                             <Typography variant="subtitle2" gutterBottom mt={2}>Asignaturas en riesgo</Typography>
@@ -162,8 +162,8 @@ const RiesgoAlumnosTable = ({ data, isLoading, onAlumnoClick }) => {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {alumno.asignaturas
-                                  ?.filter(asig => asig.prob_suspender > 0.5) // 🔹 solo asignaturas en riesgo
+                                {alumno.detalle?.asignaturas
+                                  ?.filter(asig => (parseFloat(asig.prob_suspender)) > 0.5)
                                   .map((asig) => (
                                     <TableRow key={asig.asignatura_id}>
                                       <TableCell>{asig.asignatura_nombre}</TableCell>

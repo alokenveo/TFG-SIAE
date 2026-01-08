@@ -81,9 +81,9 @@ def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
             detalle_limpio.append(
                 {
                     "asignatura_id": p.get("asignatura_id"),
-                    "asignatura": p.get("asignatura_nombre", "Desconocida"),
+                    "asignatura_nombre": p.get("asignatura_nombre", "Desconocida"),
                     "prob_suspender": float(round(p.get("prob_suspender", 0.0), 2)),
-                    "nota_estimada": (
+                    "nota_esperada": (
                         float(round(p.get("nota_esperada", 0.0), 2))
                         if p.get("nota_esperada") is not None
                         else None
