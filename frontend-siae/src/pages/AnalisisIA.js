@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Typography, Box, Toolbar, Grid, Paper, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Tooltip, Collapse, IconButton, Chip, Button, Snackbar
+  Tooltip, Collapse, IconButton, Chip, Button, Snackbar, Dialog, DialogContent, DialogTitle
 } from '@mui/material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -15,6 +15,7 @@ import iaService from '../api/iaService';
 import InfoIcon from '@mui/icons-material/Info';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SchoolIcon from '@mui/icons-material/School';
+import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useNavigate } from 'react-router-dom';
@@ -33,9 +34,43 @@ const cardBaseStyle = {
   '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.12)' },
 };
 
+// --- Modal genéric para gráficos ---
+const ChartModal = ({ open, onClose, title, children }) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xl"
+      fullWidth
+    >
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        {title}
+        <IconButton onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent>
+        <Box sx={{ width: '100%', height: '70vh' }}>
+          {children}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // --- Card genérica para gráficos ---
-const ChartCard = ({ title, isLoading, children, toggleScope, setToggleScope, showToggle = false }) => (
-  <Paper sx={{ ...cardBaseStyle, alignItems: 'stretch', minHeight: 420, pb: 2 }}>
+const ChartCard = ({ title, isLoading, children, toggleScope, setToggleScope, showToggle = false, onExpand }) => (
+  <Paper
+    sx={{
+      ...cardBaseStyle,
+      alignItems: 'stretch',
+      minHeight: 420,
+      pb: 2,
+      cursor: onExpand ? 'pointer' : 'default'
+    }}
+    onClick={onExpand}
+  >
     <Typography variant="h6" gutterBottom sx={{ textAlign: 'center' }}>
       {title}
     </Typography>
@@ -197,6 +232,7 @@ const RiesgoAlumnosTable = ({ data, isLoading, onAlumnoClick }) => {
 // --- Chart para Tasa de Suspensos (con toggle) ---
 const TasaSuspensosChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) => {
   const [processedData, setProcessedData] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
 
   useEffect(() => {
     const data = scope === 'provincia' ? dataProv : dataCentro;
@@ -208,31 +244,43 @@ const TasaSuspensosChart = ({ dataProv, dataCentro, isLoading, scope, setScope }
 
   const nameKey = scope === 'provincia' ? 'provincia' : 'centro_educativo_id';
 
+  const ChartContent = (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={processedData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
+        <YAxis />
+        <RechartsTooltip />
+        <Legend />
+        <Bar dataKey="tasa_suspensos_predicha" fill="#42a5f5" name="Tasa Predicha (%)" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
-    <ChartCard
-      title="Distribución de Tasas de Suspensos"
-      isLoading={isLoading}
-      toggleScope={scope}
-      setToggleScope={setScope}
-      showToggle={true}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={processedData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
-          <YAxis />
-          <RechartsTooltip />
-          <Legend />
-          <Bar dataKey="tasa_suspensos_predicha" fill="#42a5f5" name="Tasa Predicha (%)" />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard
+        title="Distribución de Tasas de Suspensos"
+        isLoading={isLoading}
+        toggleScope={scope}
+        setToggleScope={setScope}
+        showToggle={true}
+        onExpand={() => setOpenModal(true)}
+      >
+        {ChartContent}
+      </ChartCard>
+
+      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Distribución de Tasas de Suspensos (Vista Ampliada)">
+        {ChartContent}
+      </ChartModal>
+    </>
   );
 };
 
 // --- Chart para Impacto del Ratio (nuevo, con toggle) ---
 const ImpactoRatioChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) => {
   const [processedData, setProcessedData] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
 
   useEffect(() => {
     const data = scope === 'provincia' ? dataProv : dataCentro;
@@ -245,35 +293,47 @@ const ImpactoRatioChart = ({ dataProv, dataCentro, isLoading, scope, setScope })
 
   const nameKey = scope === 'provincia' ? 'provincia' : 'centro_educativo_id';
 
+  const ChartContent = (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={processedData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
+        <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+        <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+        <RechartsTooltip />
+        <Legend />
+        <Bar yAxisId="left" dataKey="tasa_suspensos_predicha" fill="#8884d8" name="Tasa Actual (%)" />
+        <Bar yAxisId="left" dataKey="tasa_si_10_docentes_mas" fill="#82ca9d" name="Tasa con +10 Docentes (%)" />
+        <Line yAxisId="right" type="monotone" dataKey="impacto_ratio" stroke="#ff7300" name="Impacto Ratio" />
+        <Line yAxisId="right" type="monotone" dataKey="ratio_alumno_personal" stroke="#ffc658" name="Ratio Actual" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
-    <ChartCard
-      title="Impacto del Ratio Alumno/Personal"
-      isLoading={isLoading}
-      toggleScope={scope}
-      setToggleScope={setScope}
-      showToggle={true}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={processedData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
-          <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-          <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-          <RechartsTooltip />
-          <Legend />
-          <Bar yAxisId="left" dataKey="tasa_suspensos_predicha" fill="#8884d8" name="Tasa Actual (%)" />
-          <Bar yAxisId="left" dataKey="tasa_si_10_docentes_mas" fill="#82ca9d" name="Tasa con +10 Docentes (%)" />
-          <Line yAxisId="right" type="monotone" dataKey="impacto_ratio" stroke="#ff7300" name="Impacto Ratio" />
-          <Line yAxisId="right" type="monotone" dataKey="ratio_alumno_personal" stroke="#ffc658" name="Ratio Actual" />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard
+        title="Impacto del Ratio Alumno/Personal"
+        isLoading={isLoading}
+        toggleScope={scope}
+        setToggleScope={setScope}
+        showToggle={true}
+        onExpand={() => setOpenModal(true)}
+      >
+        {ChartContent}
+      </ChartCard>
+
+      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Impacto del Ratio Alumno/Personal (Vista Ampliada)">
+        {ChartContent}
+      </ChartModal>
+    </>
   );
 };
 
 // --- Chart para Tendencias (modificado a BarChart, con toggle) ---
 const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) => {
   const [processedData, setProcessedData] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
 
   useEffect(() => {
     const data = scope === 'provincia' ? dataProv : dataCentro;
@@ -285,31 +345,44 @@ const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) =
 
   const nameKey = scope === 'provincia' ? 'provincia' : 'centro_educativo_id';
 
+  const ChartContent = (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={processedData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
+        <YAxis />
+        <RechartsTooltip />
+        <Legend />
+        <Bar dataKey="tasa_suspensos_forecast" fill="#42a5f5" name="Forecast Tasa Suspensos (%)" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
-    <ChartCard
-      title="Tendencias: Forecast Suspensos"
-      isLoading={isLoading}
-      toggleScope={scope}
-      setToggleScope={setScope}
-      showToggle={true}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={processedData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
-          <YAxis />
-          <RechartsTooltip />
-          <Legend />
-          <Bar dataKey="tasa_suspensos_forecast" fill="#42a5f5" name="Forecast Tasa Suspensos (%)" />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard
+        title="Tendencias: Forecast Suspensos"
+        isLoading={isLoading}
+        toggleScope={scope}
+        setToggleScope={setScope}
+        showToggle={true}
+        onExpand={() => setOpenModal(true)}
+      >
+        {ChartContent}
+      </ChartCard>
+
+      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Tendencias: Forecast Suspensos (Vista Ampliada)">
+        {ChartContent}
+      </ChartModal>
+    </>
   );
 };
 
 // --- Chart para Disparidades (sin cambio) ---
-const DisparidadesChart = ({ data, isLoading }) => (
-  <ChartCard title="Disparidades por Sexo y Provincia" isLoading={isLoading}>
+const DisparidadesChart = ({ data, isLoading }) => {
+  const [openModal, setOpenModal] = useState(false);
+
+  const ChartContent = (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" />
@@ -321,33 +394,56 @@ const DisparidadesChart = ({ data, isLoading }) => (
         <Bar dataKey="gap_vs_media" fill="#82ca9d" name="Gap vs Media" />
       </BarChart>
     </ResponsiveContainer>
-  </ChartCard>
-);
+  );
 
-// --- Chart para Rendimiento por Asignatura (sin cambio) ---
+  return (
+    <>
+      <ChartCard title="Disparidades por Sexo y Provincia" isLoading={isLoading} onExpand={() => setOpenModal(true)}>
+        {ChartContent}
+      </ChartCard>
+
+      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Disparidades por Sexo y Provincia (Vista Ampliada)">
+        {ChartContent}
+      </ChartModal>
+    </>
+  );
+};
+
+// --- Chart para Rendimiento por Asignatura ---
 const RendimientoChart = ({ data, isLoading }) => {
   const [processedData, setProcessedData] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
 
   useEffect(() => {
     if (data) {
       const sortedData = [...data].sort((a, b) => b.tasa_suspensos_predicha - a.tasa_suspensos_predicha);
-      setProcessedData(sortedData.slice(0, 15)); // Top 15 como en consola
+      setProcessedData(sortedData.slice(0, 15)); // Top 15
     }
   }, [data]);
 
+  const ChartContent = (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={processedData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="asignatura_nombre" angle={-45} textAnchor="end" height={80} />
+        <YAxis />
+        <RechartsTooltip />
+        <Legend />
+        <Bar dataKey="tasa_suspensos_predicha" fill="#8884d8" name="Tasa Predicha (%)" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
-    <ChartCard title="Tasa Media de Suspensos por Asignatura" isLoading={isLoading}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={processedData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="asignatura_nombre" angle={-45} textAnchor="end" height={80} />
-          <YAxis />
-          <RechartsTooltip />
-          <Legend />
-          <Bar dataKey="tasa_suspensos_predicha" fill="#8884d8" name="Tasa Predicha (%)" />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard title="Tasa Media de Suspensos por Asignatura" isLoading={isLoading} onExpand={() => setOpenModal(true)}>
+        {ChartContent}
+      </ChartCard>
+
+      <ChartModal open={openModal} onClose={() => setOpenModal(false)} title="Tasa Media de Suspensos por Asignatura (Vista Ampliada)">
+        {ChartContent}
+      </ChartModal>
+    </>
   );
 };
 
