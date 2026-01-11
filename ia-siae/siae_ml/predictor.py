@@ -16,20 +16,35 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 # ----------------------------
 def get_categoria(nombre):
     nombre_lower = nombre.lower()
-    if "lengua" in nombre_lower or "literatura" in nombre_lower:
-        return "lengua"
-    if "matemáticas" in nombre_lower:
-        return "matematicas"
-    if "física" in nombre_lower or "química" in nombre_lower:
-        return "fisica_quimica"
-    if "biología" in nombre_lower or "geología" in nombre_lower:
-        return "biologia_geologia"
+    
     if "educación física" in nombre_lower:
         return "educacion_fisica"
-    if "geografía" in nombre_lower or "historia" in nombre_lower:
+    if "inglés" in nombre_lower or "extranjera" in nombre_lower:
+        return "idioma_extranjero"
+    if "lengua" in nombre_lower or "literatura" in nombre_lower:
+        return "lengua_castellana"
+    if "matemáticas" in nombre_lower:
+        return "matematicas"
+    if "tecnología" in nombre_lower or "tic" in nombre_lower:
+        return "tecnologia"
+    if "física" in nombre_lower or "química" in nombre_lower:
+        return "fisica_quimica"
+    if "biología" in nombre_lower or "geología" in nombre_lower or "naturaleza" in nombre_lower or "medio" in nombre_lower:
+        return "biologia_geologia"
+    if "economía" in nombre_lower:
+        return "economia"
+    if "filosofía" in nombre_lower:
+        return "filosofia"
+    if "geografía" in nombre_lower or "historia" in nombre_lower or "sociales" in nombre_lower:
         return "geografia_historia"
-    # Añade más (e.g., 'inglés' para lenguas extranjeras, etc.)
-    return "otro"  # Default
+    if "valores" in nombre_lower or "éticos" in nombre_lower or "cívicos" in nombre_lower:
+        return "valores_humanidades"
+    if "música" in nombre_lower:
+        return "musica"
+    if "plástica" in nombre_lower or "artística" in nombre_lower or "visual" in nombre_lower or "dibujo" in nombre_lower:
+        return "artes_plasticas"
+
+    return "otro"
 
 
 # ----------------------------
