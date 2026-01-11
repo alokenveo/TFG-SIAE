@@ -358,20 +358,34 @@ def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
     else:
         model_ratio = None
 
-    # 4️⃣ Tendencias temporales: forecasting de suspensos por año
+    # 4️⃣ Tendencias temporales: histórico real + forecasting de suspensos por año
     tendencias = []
     for entidad, grupo in df_pred.groupby(nivel):
-        serie = grupo.groupby("anio_academico")["suspenso"].mean().reset_index()
-        if len(serie) >= 2:
-            X = serie[["anio_academico"]]
-            y = serie["suspenso"]
+        # Serie histórica REAL (de datos existentes)
+        serie_real = grupo.groupby("anio_academico")["suspenso"].mean().reset_index()
+        serie_real['tipo'] = 'real'  # Marca como real
+        
+        if len(serie_real) >= 2:
+            X = serie_real[["anio_academico"]]
+            y = serie_real["suspenso"]
             model = LinearRegression().fit(X, y)
-            pred = model.predict([[serie["anio_academico"].max() + 1]])[0] * 100
-            tendencias.append((entidad, serie["anio_academico"].max() + 1, pred))
+            
+            # Forecast para próximo año
+            anio_pred = serie_real["anio_academico"].max() + 1
+            pred = model.predict([[anio_pred]])[0] * 100
+            
+            # Añadir punto forecast a la serie
+            serie_real = pd.concat([serie_real, pd.DataFrame({
+                "anio_academico": [anio_pred],
+                "suspenso": [pred / 100],  # Guardamos como fracción para consistencia
+                "tipo": ['forecast']
+            })], ignore_index=True)
+            
+            # Convertir a lista de dicts para JSON
+            serie_list = serie_real.to_dict(orient="records")
+            tendencias.append({"entidad": entidad, "serie": serie_list})
 
-    tendencias_df = pd.DataFrame(
-        tendencias, columns=[nivel, "anio_pred", "tasa_suspensos_forecast"]
-    )
+    tendencias_df = pd.DataFrame(tendencias)
 
     # 5️⃣ Análisis de disparidades (por sexo o provincia)
     disparidades = (

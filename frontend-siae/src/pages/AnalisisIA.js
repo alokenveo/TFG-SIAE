@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, Line, ReferenceLine, Cell
+  Legend, ResponsiveContainer, Line, ReferenceLine, Cell, LineChart
 } from 'recharts';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -332,36 +332,89 @@ const ImpactoRatioChart = ({ dataProv, dataCentro, isLoading, scope, setScope })
 
 // --- Chart para Tendencias (modificado a BarChart, con toggle) ---
 const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) => {
-  const [processedData, setProcessedData] = useState([]);
+  const [selectedData, setSelectedData] = useState([]);
   const [openModal, setOpenModal] = useState(false);
 
   useEffect(() => {
     const data = scope === 'provincia' ? dataProv : dataCentro;
-    if (data) {
-      const sortedData = [...data].sort((a, b) => b.tasa_suspensos_forecast - a.tasa_suspensos_forecast);
-      setProcessedData(sortedData);
+    if (data && data.length > 0) {
+      // Ordenar por tasa media descendente y tomar top 5
+      const sorted = [...data].sort((a, b) => {
+        const meanA = a.serie.reduce((sum, p) => sum + p.suspenso, 0) / a.serie.length;
+        const meanB = b.serie.reduce((sum, p) => sum + p.suspenso, 0) / b.serie.length;
+        return meanB - meanA;
+      }).slice(0, 5);
+      setSelectedData(sorted);
     }
-  }, [scope, dataProv, dataCentro]);
+  }, [dataProv, dataCentro, scope]);
 
-  const nameKey = scope === 'provincia' ? 'provincia' : 'centro_educativo_id';
+  const colors = ['#1e88e5', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2'];  // Colores para líneas
 
   const ChartContent = (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={processedData}>
+      <LineChart margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey={nameKey} angle={-45} textAnchor="end" height={80} />
-        <YAxis />
-        <RechartsTooltip />
+        <XAxis dataKey="anio_academico" type="number" domain={[2019, 2026]} />
+        <YAxis domain={[0, 1]} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
+        <RechartsTooltip
+          labelFormatter={(label) => `Año ${label}`}
+          formatter={(v) => [`${(v * 100).toFixed(1)}%`, 'Tasa de suspensos']}
+        />
         <Legend />
-        <Bar dataKey="tasa_suspensos_forecast" fill="#42a5f5" name="Forecast Tasa Suspensos (%)" />
-      </BarChart>
+        {selectedData.map((entidadData, idx) => (
+          <Line
+            key={entidadData.entidad}
+            type="monotone"
+            dataKey="suspenso"
+            data={entidadData.serie}
+            name={entidadData.entidad}
+            stroke={colors[idx % colors.length]}
+            strokeWidth={3}
+            activeDot={{ r: 7 }}
+            dot={(props) => {
+              const { payload } = props;
+              const baseColor = colors[idx % colors.length];
+
+              if (payload.tipo === 'forecast') {
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={6}
+                    fill="#fff"
+                    stroke={baseColor}
+                    strokeWidth={3}
+                  />
+                );
+              }
+
+              return (
+                <circle
+                  cx={props.cx}
+                  cy={props.cy}
+                  r={4}
+                  fill={baseColor}
+                  stroke="none"
+                />
+              );
+            }}
+            //strokeDasharray={entidadData.serie.some(p => p.tipo === 'forecast') ? "4 4" : "0"}
+          />
+        ))}
+        <ReferenceLine
+          x={2026}
+          stroke="#999"
+          strokeDasharray="3 3"
+          label={{ value: 'Forecast', position: 'top', fill: '#666' }}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 
   return (
     <>
       <ChartCard
-        title="Tendencias: Forecast Suspensos"
+        title="Tendencias de Suspensos (2019-2026): Forecast Suspensos"
         isLoading={isLoading}
         toggleScope={scope}
         setToggleScope={setScope}
