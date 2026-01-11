@@ -34,7 +34,22 @@ def conectar_db():
 def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
     print("👤 Procesando predicciones por ALUMNO...")
 
-    alumnos_ids = df["alumno_id"].unique()
+    max_historical = df['anio_academico'].max()
+    ultimos = df.groupby('alumno_id').agg(
+        max_anio=('anio_academico', 'max'),
+        max_abandono=('abandono', 'max'),
+        max_nivel_id=('nivel_id', 'max'),
+        max_curso_orden=('curso_orden', 'max')
+    ).reset_index()
+
+    activos = ultimos[
+        (ultimos['max_anio'] == max_historical) &
+        (ultimos['max_abandono'] == 0) &
+        ~((ultimos['max_nivel_id'] == 4) & (ultimos['max_curso_orden'] >= 2))
+    ]
+    alumnos_ids = activos['alumno_id'].unique()
+    print(f"   ➤ {len(alumnos_ids)} alumnos activos encontrados para predicciones en {ANIO_ACTUAL}")
+
     total = len(alumnos_ids)
     batch_data = []
 

@@ -60,13 +60,13 @@ def predecir_por_alumno_asignaturas(
                 if ultimo["sexo"] in encoders["sexo"].classes_
                 else encoders["sexo"].transform(["UNK"])[0]
             ),
-            "ratio_alumno_personal": ultimo.get("ratio_alumno_personal", 1.0),
             "provincia_enc": (
                 encoders["provincia"].transform([ultimo.get("provincia", "UNK")])[0]
                 if ultimo.get("provincia", "UNK") in encoders["provincia"].classes_
                 else encoders["provincia"].transform(["UNK"])[0]
             ),
             "asignatura_id": int(asig),
+            "ratio_alumno_personal": ultimo.get("ratio_alumno_personal", 1.0),
             "num_suspensos_ult_anio": int(
                 alumno_df[alumno_df["anio_academico"] == ultimo["anio_academico"]][
                     "suspenso"
@@ -208,9 +208,9 @@ def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
         "curso_orden",
         "nivel_id",
         "sexo_enc",
-        "ratio_alumno_personal",
         "provincia_enc",
         "asignatura_id",
+        "ratio_alumno_personal",
         "num_suspensos_ult_anio",
         "suspensos_acumulados",
     ]
@@ -317,9 +317,9 @@ def predecir_rendimiento_por_asignatura(df, model_susp):
         "curso_orden",
         "nivel_id",
         "sexo_enc",
-        "ratio_alumno_personal",
         "provincia_enc",
         "asignatura_id",
+        "ratio_alumno_personal",
         "num_suspensos_ult_anio",
         "suspensos_acumulados",
     ]
