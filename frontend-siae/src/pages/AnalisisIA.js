@@ -343,19 +343,46 @@ const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) =
         const meanA = a.serie.reduce((sum, p) => sum + p.suspenso, 0) / a.serie.length;
         const meanB = b.serie.reduce((sum, p) => sum + p.suspenso, 0) / b.serie.length;
         return meanB - meanA;
-      }).slice(0, 5);
+      }).slice(0, 10);
       setSelectedData(sorted);
     }
   }, [dataProv, dataCentro, scope]);
 
-  const colors = ['#1e88e5', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2'];  // Colores para líneas
+  const colors = [
+    '#1e88e5', // azul
+    '#d32f2f', // rojo
+    '#388e3c', // verde
+    '#f57c00', // naranja
+    '#7b1fa2', // morado
+    '#00838f', // cian oscuro
+    '#c2185b', // rosa fuerte
+    '#512da8', // violeta oscuro
+    '#455a64', // gris azulado
+    '#fbc02d', // amarillo fuerte
+  ];
+
+
+  const allValues = selectedData.flatMap(d =>
+    d.serie.map(p => p.suspenso)
+  );
+
+  const minY = Math.min(...allValues);
+  const maxY = Math.max(...allValues);
+
+  // margen del 2%
+  const padding = 0.02;
+
+  const yDomain = [
+    Math.max(0, minY - padding),
+    Math.min(1, maxY + padding)
+  ];
 
   const ChartContent = (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="anio_academico" type="number" domain={[2019, 2026]} />
-        <YAxis domain={[0, 1]} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
+        <YAxis domain={yDomain} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
         <RechartsTooltip
           labelFormatter={(label) => `Año ${label}`}
           formatter={(v) => [`${(v * 100).toFixed(1)}%`, 'Tasa de suspensos']}
@@ -398,7 +425,7 @@ const TendenciasChart = ({ dataProv, dataCentro, isLoading, scope, setScope }) =
                 />
               );
             }}
-            //strokeDasharray={entidadData.serie.some(p => p.tipo === 'forecast') ? "4 4" : "0"}
+          //strokeDasharray={entidadData.serie.some(p => p.tipo === 'forecast') ? "4 4" : "0"}
           />
         ))}
         <ReferenceLine
