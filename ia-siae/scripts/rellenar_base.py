@@ -322,9 +322,9 @@ if __name__ == "__main__":
     conn = conectar_db()
     cursor = conn.cursor()
 
-    generar_alumnos(cursor, conn, num_alumnos=4500)
+    generar_alumnos(cursor, conn, num_alumnos=3000)
     simular_flujo(cursor, conn)
-    generar_personal(cursor, conn, num_personal=300)
+    generar_personal(cursor, conn, num_personal=200)
 
     cursor.close()
     conn.close()
