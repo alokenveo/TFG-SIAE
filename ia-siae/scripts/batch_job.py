@@ -1,7 +1,9 @@
+from multiprocessing.pool import Pool
 import sys
 import os
 import json
 import time
+from turtle import pd
 import mysql.connector
 
 # Ajustar path para importar desde siae_ml (subimos un nivel)
@@ -26,54 +28,22 @@ DB_CONFIG = {
 
 ANIO_ACTUAL = 2026
 
-
+# ----------------------------
+# FUNCIONES AUXILIARES
+# ----------------------------
 def conectar_db():
     return mysql.connector.connect(**DB_CONFIG)
 
 
-def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
-    print("👤 Procesando predicciones por ALUMNO...")
-
-    max_historical = df['anio_academico'].max()
-    ultimos = df.groupby('alumno_id').agg(
-        max_anio=('anio_academico', 'max'),
-        max_abandono=('abandono', 'max'),
-        max_nivel_id=('nivel_id', 'max'),
-        max_curso_orden=('curso_orden', 'max')
-    ).reset_index()
-
-    activos = ultimos[
-        (ultimos['max_anio'] == max_historical) &
-        (ultimos['max_abandono'] == 0) &
-        ~((ultimos['max_nivel_id'] == 4) & (ultimos['max_curso_orden'] >= 2))
-    ]
-    alumnos_ids = activos['alumno_id'].unique()
-    print(f"   ➤ {len(alumnos_ids)} alumnos activos encontrados para predicciones en {ANIO_ACTUAL}")
-
-    total = len(alumnos_ids)
-    batch_data = []
-
-    query = """
-        INSERT INTO prediccion_alumno 
-        (alumno_id, anio_academico, prob_repetir, n_suspensos_predichos, detalle_json, prob_abandono, fecha_prediccion)
-        VALUES (%s, %s, %s, %s, %s, %s, NOW())
-        ON DUPLICATE KEY UPDATE
-        prob_repetir = VALUES(prob_repetir),
-        n_suspensos_predichos = VALUES(n_suspensos_predichos),
-        detalle_json = VALUES(detalle_json),
-        prob_abandono = VALUES(prob_abandono),
-        fecha_prediccion = NOW()
-    """
-
-    for idx, alumno_id in enumerate(alumnos_ids, start=1):
-        print(f"   ➤ Alumno {idx}/{total}", end="\r")
-        # Llamada a la predicción
+def procesar_alumno(args):
+        alumno_id, modelos, encoders, df = args
+        
         respuesta_raw = predecir_por_alumno_asignaturas(
             modelos, encoders, alumno_id, df, proximo_anio_academico=ANIO_ACTUAL
         )
 
-        if not respuesta_raw:
-            continue
+        if respuesta_raw is None or (isinstance(respuesta_raw, dict) and "error" in respuesta_raw):
+            return None
 
         lista_asignaturas = respuesta_raw.get("asignaturas", [])
 
@@ -109,20 +79,56 @@ def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
 
         detalle_json_str = json.dumps(detalle_limpio)
 
-        batch_data.append(
-            (
-                int(alumno_id),
-                ANIO_ACTUAL,
-                float(prob_repetir),
-                int(n_suspensos),
-                detalle_json_str,
-                float(prob_abandono)
-            )
-        )
+        return (int(alumno_id), ANIO_ACTUAL, float(prob_repetir), int(n_suspensos), detalle_json_str, float(prob_abandono))
 
-        if len(batch_data) >= 50:
-            cursor.executemany(query, batch_data)
-            batch_data = []
+
+def guardar_predicciones_alumnos(cursor, df, modelos, encoders):
+    print("👤 Procesando predicciones por ALUMNO...")
+
+    max_historical = df['anio_academico'].max()
+    ultimos = df.groupby('alumno_id').agg(
+        max_anio=('anio_academico', 'max'),
+        max_abandono=('abandono', 'max'),
+        max_nivel_id=('nivel_id', 'max'),
+        max_curso_orden=('curso_orden', 'max')
+    ).reset_index()
+
+    activos = ultimos[
+        (ultimos['max_anio'] == max_historical) &
+        (ultimos['max_abandono'] == 0) &
+        ~((ultimos['max_nivel_id'] == 4) & (ultimos['max_curso_orden'] >= 2))
+    ]
+    alumnos_ids = activos['alumno_id'].unique()
+    print(f"   ➤ {len(alumnos_ids)} alumnos activos encontrados para predicciones en {ANIO_ACTUAL}")
+
+    total = len(alumnos_ids)
+
+    query = """
+        INSERT INTO prediccion_alumno 
+        (alumno_id, anio_academico, prob_repetir, n_suspensos_predichos, detalle_json, prob_abandono, fecha_prediccion)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+        ON DUPLICATE KEY UPDATE
+        prob_repetir = VALUES(prob_repetir),
+        n_suspensos_predichos = VALUES(n_suspensos_predichos),
+        detalle_json = VALUES(detalle_json),
+        prob_abandono = VALUES(prob_abandono),
+        fecha_prediccion = NOW()
+    """
+    
+    batch_data = []
+    procesados = 0
+
+    with Pool(processes=2) as pool:
+        args = [(alumno_id, modelos, encoders, df) for alumno_id in alumnos_ids]
+
+        for res in pool.imap_unordered(procesar_alumno, args):
+            procesados += 1
+
+            if res is not None:
+                batch_data.append(res)
+
+            if procesados % 50 == 0 or procesados == total:
+                print(f"   ⏳ Progreso: {procesados}/{total} alumnos procesados")
 
     if batch_data:
         cursor.executemany(query, batch_data)

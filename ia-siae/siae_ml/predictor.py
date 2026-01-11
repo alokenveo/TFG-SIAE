@@ -4,10 +4,32 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.arima.model import ARIMA
 import warnings
+from siae_ml.data_loader import conectar_db
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+
+# ----------------------------
+# FUNCIONES AUXILIARES
+# ----------------------------
+def get_categoria(nombre):
+    nombre_lower = nombre.lower()
+    if "lengua" in nombre_lower or "literatura" in nombre_lower:
+        return "lengua"
+    if "matemáticas" in nombre_lower:
+        return "matematicas"
+    if "física" in nombre_lower or "química" in nombre_lower:
+        return "fisica_quimica"
+    if "biología" in nombre_lower or "geología" in nombre_lower:
+        return "biologia_geologia"
+    if "educación física" in nombre_lower:
+        return "educacion_fisica"
+    if "geografía" in nombre_lower or "historia" in nombre_lower:
+        return "geografia_historia"
+    # Añade más (e.g., 'inglés' para lenguas extranjeras, etc.)
+    return "otro"  # Default
 
 
 # ----------------------------
@@ -24,28 +46,88 @@ def predecir_por_alumno_asignaturas(
         return None
 
     ultimo = alumno_df.iloc[-1]
+    ultimo_anio = alumno_df["anio_academico"].max()
     proximo_anio = (
         proximo_anio_academico
         if proximo_anio_academico is not None
-        else ultimo["anio_academico"] + 1
+        else ultimo_anio + 1
     )
 
-    # Lista de asignaturas que el alumno cursó (o podría cursar)
-    asignaturas = alumno_df["asignatura_id"].unique()
+    # Determinar si repite o avanza basado en rendimiento histórico de último año
+    alumno_ultimo_df = alumno_df[alumno_df["anio_academico"] == ultimo_anio]
+    num_suspensos_last = alumno_ultimo_df[
+        "suspenso"
+    ].sum()  # Suspensos reales último año
+    ultimo_curso_id = alumno_ultimo_df["curso_id"].iloc[0]  # Curso del último año
+
+    if num_suspensos_last > 3:  # Umbral ajustable (basado en tu modelo_rep)
+        proximo_curso_id = ultimo_curso_id  # Repite
+    else:
+        # Calcular próximo curso (lógica similar a rellenar_base.py)
+        ultimo_orden = int(alumno_ultimo_df["curso_orden"].max())
+        ultimo_nivel = int(alumno_ultimo_df["nivel_id"].max())
+        proximo_orden = ultimo_orden + 1
+        conn = conectar_db()
+        cursor = conn.cursor(dictionary=True)
+        # Buscar en mismo nivel
+        cursor.execute(
+            """
+            SELECT id FROM curso 
+            WHERE nivel_id = %s AND orden = %s
+        """,
+            (ultimo_nivel, proximo_orden),
+        )
+        result = cursor.fetchone()
+        if result:
+            proximo_curso_id = result["id"]
+        else:
+            # Avanzar a próximo nivel
+            proximo_nivel = ultimo_nivel + 1
+            cursor.execute(
+                """
+                SELECT id FROM curso 
+                WHERE nivel_id = %s AND orden = 1
+            """,
+                (int(proximo_nivel),),
+            )
+            result = cursor.fetchone()
+            proximo_curso_id = result["id"] if result else None  # None si graduado
+        cursor.close()
+        conn.close()
+
+    if proximo_curso_id is None:
+        return {"error": "Alumno probablemente graduado, no hay curso para 2026."}
+
+    # Obtener asignaturas del próximo curso desde DB
+    conn = conectar_db()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(
+        """
+        SELECT id, nombre FROM asignatura WHERE curso_id = %s
+    """,
+        (int(proximo_curso_id),),
+    )
+    asignaturas_futuras = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if not asignaturas_futuras:
+        return {"error": "No hay asignaturas para el curso predicted."}
 
     results = []
-    for asig in asignaturas:
-        # construir fila de características para la asignatura en el próximo periodo
-        # tomar nota_previa como la última nota en esa asignatura (si existe)
-        df_asig_hist = alumno_df[alumno_df["asignatura_id"] == asig]
-        nota_previa = (
-            df_asig_hist["calificacion"].iloc[-1] if not df_asig_hist.empty else np.nan
-        )
+    for asig in asignaturas_futuras:
+        asig_id = asig["id"]
+        nombre_asig = asig["nombre"]
+        categoria = get_categoria(nombre_asig)
 
-        nombre_asig = (
-            df_asig_hist["asignatura_nombre"].iloc[-1]
-            if "asignatura_nombre" in df_asig_hist.columns
-            else str(asig)
+        # Buscar nota_previa de equivalente histórica (última en misma categoría)
+        hist_equiv = alumno_df[
+            alumno_df.apply(
+                lambda row: get_categoria(row["asignatura_nombre"]) == categoria, axis=1
+            )
+        ]
+        nota_previa = (
+            hist_equiv["calificacion"].iloc[-1] if not hist_equiv.empty else np.nan
         )
 
         # features consistentes con los usados en entrenamiento
@@ -65,7 +147,7 @@ def predecir_por_alumno_asignaturas(
                 if ultimo.get("provincia", "UNK") in encoders["provincia"].classes_
                 else encoders["provincia"].transform(["UNK"])[0]
             ),
-            "asignatura_id": int(asig),
+            "asignatura_id": int(asig_id),
             "ratio_alumno_personal": ultimo.get("ratio_alumno_personal", 1.0),
             "num_suspensos_ult_anio": int(
                 alumno_df[alumno_df["anio_academico"] == ultimo["anio_academico"]][
@@ -91,13 +173,15 @@ def predecir_por_alumno_asignaturas(
         # Agregar recomendaciones por asignatura
         recs = []
         if prob_susp > 0.6:
-            recs.append(f"Reforzar {asig}: riesgo {prob_susp:.2f}")
+            recs.append(f"Reforzar {nombre_asig}: riesgo {prob_susp:.2f}")
         if nota_pred < 5:
-            recs.append(f"Objetivo: subir nota en {asig} (pred: {nota_pred:.1f})")
+            recs.append(
+                f"Objetivo: subir nota en {nombre_asig} (pred: {nota_pred:.1f})"
+            )
 
         results.append(
             {
-                "asignatura_id": int(asig),
+                "asignatura_id": int(asig_id),
                 "asignatura_nombre": nombre_asig,
                 "prob_suspender": round(float(prob_susp), 3),
                 "nota_esperada": round(float(nota_pred), 2),
@@ -277,13 +361,13 @@ def predicciones_agregadas(df, models, nivel="centro_educativo_id"):
     # 4️⃣ Tendencias temporales: forecasting de suspensos por año
     tendencias = []
     for entidad, grupo in df_pred.groupby(nivel):
-        serie = grupo.groupby('anio_academico')['suspenso'].mean().reset_index()
+        serie = grupo.groupby("anio_academico")["suspenso"].mean().reset_index()
         if len(serie) >= 2:
-            X = serie[['anio_academico']]
-            y = serie['suspenso']
+            X = serie[["anio_academico"]]
+            y = serie["suspenso"]
             model = LinearRegression().fit(X, y)
-            pred = model.predict([[serie['anio_academico'].max() + 1]])[0] * 100
-            tendencias.append((entidad, serie['anio_academico'].max() + 1, pred))
+            pred = model.predict([[serie["anio_academico"].max() + 1]])[0] * 100
+            tendencias.append((entidad, serie["anio_academico"].max() + 1, pred))
 
     tendencias_df = pd.DataFrame(
         tendencias, columns=[nivel, "anio_pred", "tasa_suspensos_forecast"]
